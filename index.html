@@ -4,6 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NaLinha</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/icon16.png" />
     <style>
       body {
         margin: 0;
@@ -175,6 +177,13 @@
         gap: 8px;
         font-size: 12px;
         flex-wrap: wrap;
+      }
+
+      .page-size-row,
+      .page-nav-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
       }
 
       .pagination-controls label {
@@ -452,7 +461,23 @@
         }
 
         .pagination-controls {
+          width: 100%;
+          flex-direction: column;
+          align-items: stretch;
+          gap: 6px;
+        }
+
+        .page-size-row {
           justify-content: space-between;
+        }
+
+        .page-nav-row {
+          justify-content: space-between;
+        }
+
+        .page-nav-row #pageInfo {
+          flex: 1;
+          min-width: 0;
         }
 
         table,
@@ -533,14 +558,18 @@
           <input id="searchInput" type="search" placeholder="linha:386  ou  prefixo:XY014" aria-label="Buscar" />
         </div>
         <div class="pagination-controls">
-          <label for="pageSizeSelect">Itens por página</label>
-          <select id="pageSizeSelect">
-            <option value="50" selected>50</option>
-            <option value="100">100</option>
-          </select>
-          <button id="prevPageBtn" type="button">Anterior</button>
-          <span id="pageInfo">Página 0/0</span>
-          <button id="nextPageBtn" type="button">Próxima</button>
+          <div class="page-size-row">
+            <label for="pageSizeSelect">Itens por página</label>
+            <select id="pageSizeSelect">
+              <option value="50" selected>50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+          <div class="page-nav-row">
+            <button id="prevPageBtn" type="button">Anterior</button>
+            <span id="pageInfo">Página 0/0</span>
+            <button id="nextPageBtn" type="button">Próxima</button>
+          </div>
         </div>
       </div>
 
