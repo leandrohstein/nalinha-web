@@ -63,6 +63,32 @@ const HEADER_LABEL_MAP = {
 let autoUpdate = null;
 let isHistoricalViewActive = false;
 let autoUpdateFocusTimer = null;
+let statusHideTimer = null;
+let preloadHideTimer = null;
+
+const CHIP_AUTO_HIDE_MS = 30 * 1000;
+
+function startStatusAutoHide() {
+  if (statusHideTimer !== null) {
+    return;
+  }
+
+  statusHideTimer = setTimeout(() => {
+    ui.status.classList.add("chip-hidden");
+    statusHideTimer = null;
+  }, CHIP_AUTO_HIDE_MS);
+}
+
+function startPreloadAutoHide() {
+  if (preloadHideTimer !== null) {
+    return;
+  }
+
+  preloadHideTimer = setTimeout(() => {
+    ui.preloadTooltip.classList.add("chip-hidden");
+    preloadHideTimer = null;
+  }, CHIP_AUTO_HIDE_MS);
+}
 
 const preloadState = {
   running: false,
@@ -164,10 +190,13 @@ function formatTargetLabel(date) {
 function setPreloadTooltip(message, tone = "") {
   ui.preloadTooltip.textContent = message;
   ui.preloadTooltip.classList.remove("success", "error");
+  ui.preloadTooltip.classList.remove("chip-hidden");
 
   if (tone) {
     ui.preloadTooltip.classList.add(tone);
   }
+
+  startPreloadAutoHide();
 }
 
 async function runPreloadLoop() {
@@ -253,6 +282,9 @@ async function startPreloadCycle(options = {}) {
 
 function setStatus(message) {
   uiSetStatus(ui, message);
+  ui.status.classList.remove("chip-hidden");
+
+  startStatusAutoHide();
 }
 
 function updateLoadButtonState() {
@@ -505,7 +537,6 @@ async function showResult(data) {
 
 function clearResult() {
   ui.resultOutput.innerHTML = "";
-  ui.searchInput.value = "";
   paginationState.rows = [];
   paginationState.allRows = [];
   paginationState.headerNames = [];
@@ -698,6 +729,25 @@ ui.searchInput.addEventListener("input", async () => {
   paginationState.currentPage = 1;
   await renderCurrentPage();
 });
+
+ui.status.addEventListener("click", () => {
+  ui.status.classList.add("chip-hidden");
+  if (statusHideTimer !== null) {
+    clearTimeout(statusHideTimer);
+    statusHideTimer = null;
+  }
+});
+
+ui.preloadTooltip.addEventListener("click", () => {
+  ui.preloadTooltip.classList.add("chip-hidden");
+  if (preloadHideTimer !== null) {
+    clearTimeout(preloadHideTimer);
+    preloadHideTimer = null;
+  }
+});
+
+startStatusAutoHide();
+startPreloadAutoHide();
 
 window.addEventListener("blur", scheduleAutoUpdateFocusGuard);
 window.addEventListener("focus", clearAutoUpdateFocusTimer);

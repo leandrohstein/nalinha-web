@@ -145,7 +145,7 @@ export function formatDataDateTime(baseTime, minuteOffset) {
   const year = target.getFullYear();
   const hour = pad2(target.getHours());
   const minute = pad2(target.getMinutes());
-  return `${day}/${month}/${year} ${hour}:${minute}:00`;
+  return `${day}/${month}/${year} ${hour}:${minute}`;
 }
 
 export function setFreshnessDot(ui, minuteOffset) {
