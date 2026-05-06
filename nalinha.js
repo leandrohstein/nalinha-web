@@ -494,12 +494,11 @@ async function showResult(data) {
   const columnCount = getMaxColumnCount(rows);
 
   paginationState.allRows = rows;
-  paginationState.rows = rows;
   paginationState.columnCount = columnCount;
   paginationState.headerNames = headerNames;
   paginationState.currentPage = 1;
   paginationState.pageSize = Number(ui.pageSizeSelect.value);
-  ui.searchInput.value = "";
+  paginationState.rows = applySearch(ui.searchInput.value, paginationState);
 
   await renderCurrentPage();
 }
