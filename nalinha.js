@@ -340,6 +340,24 @@ function getDisplayHeaderName(headerName) {
   return HEADER_LABEL_MAP[normalized] || headerName;
 }
 
+function getColumnClassName(headerName) {
+  const normalized = normalizeText(headerName);
+
+  if (normalized === "REFRESH") {
+    return "col-refresh";
+  }
+
+  if (normalized === "LAT") {
+    return "col-lat";
+  }
+
+  if (normalized === "LON") {
+    return "col-lon";
+  }
+
+  return "";
+}
+
 async function buildLineMap(headerNames, pageRows) {
   const codigoIndex = headerNames.findIndex(
     (h) => normalizeText(h) === "CODIGOLINHA"
@@ -396,7 +414,12 @@ async function renderCurrentPage() {
   }
 
   const headerHtml = headerNames
-    .map((headerName) => `<th>${escapeHtml(getDisplayHeaderName(headerName))}</th>`)
+    .map((headerName) => {
+      const displayHeader = getDisplayHeaderName(headerName);
+      const columnClass = getColumnClassName(headerName);
+      const classAttr = columnClass ? ` class="${columnClass}"` : "";
+      return `<th${classAttr}>${escapeHtml(displayHeader)}</th>`;
+    })
     .join("");
 
   const startIndex = (currentPage - 1) * pageSize;
@@ -408,7 +431,13 @@ async function renderCurrentPage() {
   const bodyHtml = pageRows
     .map((row) => {
       const cells = Array.from({ length: columnCount }, (_, index) => row[index])
-        .map((cellValue, index) => `<td>${renderCellContent(headerNames[index] || "", cellValue, lineMap, vehicleTypeMap)}</td>`)
+        .map((cellValue, index) => {
+          const headerName = headerNames[index] || "";
+          const displayHeader = getDisplayHeaderName(headerName);
+          const columnClass = getColumnClassName(headerName);
+          const classAttr = columnClass ? ` class="${columnClass}"` : "";
+          return `<td${classAttr} data-label="${escapeHtml(displayHeader)}">${renderCellContent(headerName, cellValue, lineMap, vehicleTypeMap)}</td>`;
+        })
         .join("");
       return `<tr>${cells}</tr>`;
     })
