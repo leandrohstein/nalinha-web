@@ -29,6 +29,9 @@ const ui = {
   nextPageBtn: document.querySelector("#nextPageBtn"),
   pageInfo: document.querySelector("#pageInfo"),
   searchInput: document.querySelector("#searchInput"),
+  clearSearchBtn: document.querySelector("#clearSearchBtn"),
+  searchModeLinhaBtn: document.querySelector("#searchModeLinhaBtn"),
+  searchModePrefixoBtn: document.querySelector("#searchModePrefixoBtn"),
   totalCount: document.querySelector("#totalCount"),
   preloadTooltip: document.querySelector("#preloadTooltip"),
   autoUpdateBtn: document.querySelector("#autoUpdateBtn"),
@@ -65,8 +68,42 @@ let isHistoricalViewActive = false;
 let autoUpdateFocusTimer = null;
 let statusHideTimer = null;
 let preloadHideTimer = null;
+let mobileSearchMode = "linha";
 
 const CHIP_AUTO_HIDE_MS = 30 * 1000;
+
+function isMobileSearchModeActive() {
+  return window.matchMedia("(max-width: 768px)").matches;
+}
+
+function getEffectiveSearchValue() {
+  const rawValue = ui.searchInput.value.trim();
+
+  if (!isMobileSearchModeActive()) {
+    return rawValue;
+  }
+
+  if (!rawValue) {
+    return rawValue;
+  }
+
+  if (rawValue.includes(":")) {
+    return rawValue;
+  }
+
+  return `${mobileSearchMode}:${rawValue}`;
+}
+
+function updateMobileSearchModeButtons() {
+  ui.searchModeLinhaBtn?.classList.toggle("active", mobileSearchMode === "linha");
+  ui.searchModePrefixoBtn?.classList.toggle("active", mobileSearchMode === "prefixo");
+}
+
+async function applyCurrentSearchAndRender() {
+  paginationState.rows = applySearch(getEffectiveSearchValue(), paginationState);
+  paginationState.currentPage = 1;
+  await renderCurrentPage();
+}
 
 function startStatusAutoHide() {
   if (statusHideTimer !== null) {
@@ -530,7 +567,7 @@ async function showResult(data) {
   paginationState.headerNames = headerNames;
   paginationState.currentPage = 1;
   paginationState.pageSize = Number(ui.pageSizeSelect.value);
-  paginationState.rows = applySearch(ui.searchInput.value, paginationState);
+  paginationState.rows = applySearch(getEffectiveSearchValue(), paginationState);
 
   await renderCurrentPage();
 }
@@ -724,11 +761,27 @@ autoUpdate = {
   },
 };
 
-ui.searchInput.addEventListener("input", async () => {
-  paginationState.rows = applySearch(ui.searchInput.value, paginationState);
-  paginationState.currentPage = 1;
-  await renderCurrentPage();
+ui.searchInput.addEventListener("input", applyCurrentSearchAndRender);
+
+ui.clearSearchBtn?.addEventListener("click", async () => {
+  ui.searchInput.value = "";
+  await applyCurrentSearchAndRender();
+  ui.searchInput.focus();
 });
+
+ui.searchModeLinhaBtn?.addEventListener("click", async () => {
+  mobileSearchMode = "linha";
+  updateMobileSearchModeButtons();
+  await applyCurrentSearchAndRender();
+});
+
+ui.searchModePrefixoBtn?.addEventListener("click", async () => {
+  mobileSearchMode = "prefixo";
+  updateMobileSearchModeButtons();
+  await applyCurrentSearchAndRender();
+});
+
+updateMobileSearchModeButtons();
 
 ui.status.addEventListener("click", () => {
   ui.status.classList.add("chip-hidden");

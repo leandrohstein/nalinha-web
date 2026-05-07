@@ -27,7 +27,13 @@
       <!-- search + pagination -->
       <div class="controls-bar">
         <div class="search-box">
+          <div class="search-filter-buttons" aria-label="Tipo de filtro">
+            <span class="search-filter-label">filtrar por:</span>
+            <button id="searchModeLinhaBtn" type="button">Linha</button>
+            <button id="searchModePrefixoBtn" type="button">Prefixo</button>
+          </div>
           <input id="searchInput" type="search" placeholder="linha:386  ou  prefixo:XY014" aria-label="Buscar" />
+          <button id="clearSearchBtn" class="clear-search-btn" type="button" aria-label="Limpar busca">Limpar</button>
         </div>
         <div class="pagination-controls">
           <div class="page-size-row">
@@ -38,6 +44,7 @@
             </select>
           </div>
           <div class="page-nav-row">
+            <p id="totalCount"></p>
             <button id="prevPageBtn" type="button">Anterior</button>
             <span id="pageInfo">Página 0/0</span>
             <button id="nextPageBtn" type="button">Próxima</button>
@@ -48,8 +55,6 @@
       <!-- table -->
       <div id="resultOutput" class="table-wrap"></div>
 
-      <!-- footer -->
-      <p id="totalCount"></p>
     </section>
 
     <div id="historicalModal" class="modal-overlay" aria-hidden="true">

@@ -1,8 +1,8 @@
 import { formatCellValue, normalizeText } from "./nalinhaUi.js";
 
 const SEARCH_FIELD_MAP = {
-  linha: { filter: "CODIGOLINHA", sort: "TABELA" },
-  prefixo: { filter: "COD", sort: "COD" },
+  linha: { filter: "CODIGOLINHA", sort: ["CODIGOLINHA", "TABELA"] },
+  prefixo: { filter: "COD", sort: ["COD"] },
 };
 
 function toSortKey(value) {
@@ -40,28 +40,40 @@ export function applySearch(rawInput, paginationState) {
   }
 
   const filtered = allRows.filter((row) =>
-    normalizeText(formatCellValue(row[filterIndex])).includes(fieldValue)
+    normalizeText(formatCellValue(row[filterIndex])).startsWith(fieldValue)
   );
 
-  const sortIndex = headerNames.findIndex(
-    (h) => normalizeText(h) === mapping.sort
-  );
+  const sortIndices = mapping.sort
+    .map((fieldName) => headerNames.findIndex(
+      (h) => normalizeText(h) === fieldName
+    ))
+    .filter((index) => index !== -1);
 
-  if (sortIndex === -1) {
+  if (sortIndices.length === 0) {
     return filtered;
   }
 
   return [...filtered].sort((a, b) => {
-    const va = normalizeText(formatCellValue(a[sortIndex]));
-    const vb = normalizeText(formatCellValue(b[sortIndex]));
+    for (const sortIndex of sortIndices) {
+      const va = normalizeText(formatCellValue(a[sortIndex]));
+      const vb = normalizeText(formatCellValue(b[sortIndex]));
 
-    const ka = toSortKey(va);
-    const kb = toSortKey(vb);
+      const ka = toSortKey(va);
+      const kb = toSortKey(vb);
 
-    if (typeof ka === "number" && typeof kb === "number") {
-      return ka - kb;
+      if (typeof ka === "number" && typeof kb === "number") {
+        if (ka !== kb) {
+          return ka - kb;
+        }
+        continue;
+      }
+
+      const comparison = String(ka).localeCompare(String(kb));
+      if (comparison !== 0) {
+        return comparison;
+      }
     }
 
-    return String(ka).localeCompare(String(kb));
+    return 0;
   });
 }
