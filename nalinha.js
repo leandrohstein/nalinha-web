@@ -68,9 +68,78 @@ let isHistoricalViewActive = false;
 let autoUpdateFocusTimer = null;
 let statusHideTimer = null;
 let preloadHideTimer = null;
+let searchAnalyticsTimer = null;
+let lastTrackedSearchKey = "";
 let mobileSearchMode = "linha";
 
 const CHIP_AUTO_HIDE_MS = 30 * 1000;
+const SEARCH_ANALYTICS_DEBOUNCE_MS = 500;
+
+function trackGaEvent(eventName, params = {}) {
+  if (typeof window.gtag !== "function") {
+    return;
+  }
+
+  window.gtag("event", eventName, params);
+}
+
+function getSearchAnalyticsPayload(rawSearchValue = getEffectiveSearchValue()) {
+  const trimmedValue = rawSearchValue.trim();
+  if (!trimmedValue) {
+    return null;
+  }
+
+  const colonIndex = trimmedValue.indexOf(":");
+  if (colonIndex <= 0) {
+    return null;
+  }
+
+  const searchType = normalizeText(trimmedValue.slice(0, colonIndex)).toLowerCase();
+  const searchTerm = trimmedValue.slice(colonIndex + 1).trim();
+
+  if (!searchTerm || !["linha", "prefixo"].includes(searchType)) {
+    return null;
+  }
+
+  return {
+    search_term: searchTerm,
+    search_type: searchType === "linha" ? "Linha" : "Prefixo",
+    results_count: paginationState.rows.length,
+  };
+}
+
+function resetSearchAnalyticsTracking() {
+  if (searchAnalyticsTimer !== null) {
+    clearTimeout(searchAnalyticsTimer);
+    searchAnalyticsTimer = null;
+  }
+
+  lastTrackedSearchKey = "";
+}
+
+function scheduleSearchAnalytics() {
+  if (searchAnalyticsTimer !== null) {
+    clearTimeout(searchAnalyticsTimer);
+  }
+
+  searchAnalyticsTimer = setTimeout(() => {
+    searchAnalyticsTimer = null;
+
+    const payload = getSearchAnalyticsPayload();
+    if (!payload) {
+      lastTrackedSearchKey = "";
+      return;
+    }
+
+    const trackingKey = `${payload.search_type}:${payload.search_term}`;
+    if (trackingKey === lastTrackedSearchKey) {
+      return;
+    }
+
+    lastTrackedSearchKey = trackingKey;
+    trackGaEvent("search", payload);
+  }, SEARCH_ANALYTICS_DEBOUNCE_MS);
+}
 
 function isMobileSearchModeActive() {
   return window.matchMedia("(max-width: 768px)").matches;
@@ -761,24 +830,33 @@ autoUpdate = {
   },
 };
 
-ui.searchInput.addEventListener("input", applyCurrentSearchAndRender);
+ui.searchInput.addEventListener("input", async () => {
+  await applyCurrentSearchAndRender();
+  scheduleSearchAnalytics();
+});
 
 ui.clearSearchBtn?.addEventListener("click", async () => {
+  resetSearchAnalyticsTracking();
   ui.searchInput.value = "";
   await applyCurrentSearchAndRender();
   ui.searchInput.focus();
+  trackGaEvent("clear_search");
 });
 
 ui.searchModeLinhaBtn?.addEventListener("click", async () => {
   mobileSearchMode = "linha";
   updateMobileSearchModeButtons();
   await applyCurrentSearchAndRender();
+  trackGaEvent("select_search_type", { search_type: "Linha" });
+  scheduleSearchAnalytics();
 });
 
 ui.searchModePrefixoBtn?.addEventListener("click", async () => {
   mobileSearchMode = "prefixo";
   updateMobileSearchModeButtons();
   await applyCurrentSearchAndRender();
+  trackGaEvent("select_search_type", { search_type: "Prefixo" });
+  scheduleSearchAnalytics();
 });
 
 updateMobileSearchModeButtons();
@@ -789,6 +867,7 @@ ui.status.addEventListener("click", () => {
     clearTimeout(statusHideTimer);
     statusHideTimer = null;
   }
+  trackGaEvent("dismiss_ui_chip", { chip: "status" });
 });
 
 ui.preloadTooltip.addEventListener("click", () => {
@@ -797,6 +876,7 @@ ui.preloadTooltip.addEventListener("click", () => {
     clearTimeout(preloadHideTimer);
     preloadHideTimer = null;
   }
+  trackGaEvent("dismiss_ui_chip", { chip: "preload" });
 });
 
 startStatusAutoHide();
@@ -813,15 +893,28 @@ document.addEventListener("visibilitychange", () => {
   clearAutoUpdateFocusTimer();
 });
 
-ui.autoUpdateBtn.addEventListener("click", () => autoUpdate?.toggle());
+ui.autoUpdateBtn.addEventListener("click", () => {
+  autoUpdate?.toggle();
+  trackGaEvent("toggle_auto_update", {
+    enabled: autoUpdate?.enabled ? "on" : "off",
+  });
+});
 ui.loadButton.addEventListener("click", () => {
+  const previousView = isHistoricalViewActive ? "historical" : "current";
   isHistoricalViewActive = false;
   updateLoadButtonState();
+  trackGaEvent("load_current_data", { previous_view: previousView });
   fetchCurrentData();
 });
-ui.loadHistoricalBtn.addEventListener("click", openHistoricalModal);
+ui.loadHistoricalBtn.addEventListener("click", () => {
+  trackGaEvent("open_historical_modal");
+  openHistoricalModal();
+});
 
-ui.cancelHistoricalBtn.addEventListener("click", closeHistoricalModal);
+ui.cancelHistoricalBtn.addEventListener("click", () => {
+  trackGaEvent("close_historical_modal", { method: "cancel_button" });
+  closeHistoricalModal();
+});
 
 ui.confirmHistoricalBtn.addEventListener("click", async () => {
   const rawValue = ui.historicalDateInput.value;
@@ -842,6 +935,7 @@ ui.confirmHistoricalBtn.addEventListener("click", async () => {
   }
 
   closeHistoricalModal();
+  trackGaEvent("load_historical_data");
   const loaded = await fetchCurrentData(selectedDate, { showFreshnessDot: false });
 
   if (loaded) {
@@ -857,12 +951,14 @@ ui.confirmHistoricalBtn.addEventListener("click", async () => {
 
 ui.historicalModal.addEventListener("click", (event) => {
   if (event.target === ui.historicalModal) {
+    trackGaEvent("close_historical_modal", { method: "overlay_click" });
     closeHistoricalModal();
   }
 });
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && ui.historicalModal.classList.contains("open")) {
+    trackGaEvent("close_historical_modal", { method: "escape_key" });
     closeHistoricalModal();
   }
 });
@@ -871,12 +967,19 @@ ui.pageSizeSelect.addEventListener("change", async () => {
   paginationState.pageSize = Number(ui.pageSizeSelect.value);
   paginationState.currentPage = 1;
   await renderCurrentPage();
+  trackGaEvent("change_page_size", { page_size: paginationState.pageSize });
 });
 
 ui.prevPageBtn.addEventListener("click", async () => {
   if (paginationState.currentPage > 1) {
+    const previousPage = paginationState.currentPage;
     paginationState.currentPage -= 1;
     await renderCurrentPage();
+    trackGaEvent("paginate", {
+      direction: "previous",
+      from_page: previousPage,
+      to_page: paginationState.currentPage,
+    });
   }
 });
 
@@ -886,8 +989,14 @@ ui.nextPageBtn.addEventListener("click", async () => {
     : 0;
 
   if (paginationState.currentPage < totalPages) {
+    const previousPage = paginationState.currentPage;
     paginationState.currentPage += 1;
     await renderCurrentPage();
+    trackGaEvent("paginate", {
+      direction: "next",
+      from_page: previousPage,
+      to_page: paginationState.currentPage,
+    });
   }
 });
 
