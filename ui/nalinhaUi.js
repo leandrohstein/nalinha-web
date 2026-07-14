@@ -37,7 +37,7 @@ export function setStatus(ui, message) {
   ui.status.textContent = message;
 }
 
-function getSituationDotClass(value) {
+export function getSituationDotClass(value) {
   const normalizedValue = normalizeText(value);
 
   const parts = normalizedValue

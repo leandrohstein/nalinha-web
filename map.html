@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-GJSE1Q9F91"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-GJSE1Q9F91');
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NaLinha - Movimentação</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/icon16.png" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="map.css" />
+  </head>
+  <body>
+    <section class="card">
+      <div class="top-bar">
+        <h1><img src="icons/icon32.png" alt="" aria-hidden="true" />Movimentação dos Veículos</h1>
+        <div class="top-bar-right">
+          <a id="backLink" class="nav-link-btn" href="index.html">Relatório de Operações</a>
+        </div>
+      </div>
+
+      <div class="controls-bar">
+        <div class="date-box">
+          <label for="movementDateInput">Data</label>
+          <input id="movementDateInput" type="date" />
+          <button id="loadMovementBtn" type="button">Carregar</button>
+          <button id="rebuildMovementBtn" type="button" title="Reprocessar os dados dessa data a partir do IndexedDB">Reprocessar</button>
+        </div>
+        <div class="search-box">
+          <input id="movementSearchInput" type="search" placeholder="linha:386  ou  prefixo:XY014" aria-label="Filtrar veículos" />
+          <button id="clearMovementSearchBtn" class="clear-search-btn" type="button" aria-label="Limpar filtro">Limpar</button>
+        </div>
+      </div>
+
+      <div id="map"></div>
+
+      <div class="player-bar">
+        <div class="player-buttons">
+          <button id="restartBtn" type="button" title="Reiniciar" aria-label="Reiniciar">⏮</button>
+          <button id="playPauseBtn" type="button" title="Play/Pause" aria-label="Play/Pause">▶</button>
+        </div>
+        <span id="currentTimeLabel" class="time-label">--:--:--</span>
+        <input id="seekRange" type="range" min="0" max="0" value="0" step="1000" aria-label="Progresso" />
+        <span id="totalTimeLabel" class="time-label">--:--:--</span>
+        <select id="speedSelect" aria-label="Velocidade">
+          <option value="1">1 min/s</option>
+          <option value="2" selected>2 min/s</option>
+          <option value="5">5 min/s</option>
+          <option value="10">10 min/s</option>
+          <option value="20">20 min/s</option>
+        </select>
+      </div>
+    </section>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script type="module" src="map.js"></script>
+    <div id="bottomTooltips">
+      <p id="status" aria-live="polite">Selecione uma data para carregar a movimentação.</p>
+    </div>
+  </body>
+</html>
