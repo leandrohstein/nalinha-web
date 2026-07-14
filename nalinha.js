@@ -23,6 +23,7 @@ const ui = {
   resultOutput: document.querySelector("#resultOutput"),
   loadButton: document.querySelector("#loadDataBtn"),
   loadHistoricalBtn: document.querySelector("#loadHistoricalBtn"),
+  viewMovementLink: document.querySelector("#viewMovementLink"),
   freshnessDot: document.querySelector("#freshnessDot"),
   pageSizeSelect: document.querySelector("#pageSizeSelect"),
   prevPageBtn: document.querySelector("#prevPageBtn"),
@@ -909,6 +910,10 @@ ui.loadButton.addEventListener("click", () => {
 ui.loadHistoricalBtn.addEventListener("click", () => {
   trackGaEvent("open_historical_modal");
   openHistoricalModal();
+});
+
+ui.viewMovementLink?.addEventListener("click", () => {
+  trackGaEvent("open_movement_view");
 });
 
 ui.cancelHistoricalBtn.addEventListener("click", () => {

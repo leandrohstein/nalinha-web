@@ -114,6 +114,23 @@ body {
   background: #115e59;
 }
 
+.nav-link-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 10px;
+  background: #7c3aed;
+  color: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.nav-link-btn:hover {
+  background: #6d28d9;
+}
+
 /* ── data-time ── */
 .data-time-box {
   box-sizing: border-box;
