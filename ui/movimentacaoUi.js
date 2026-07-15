@@ -67,6 +67,10 @@ export function getMarkerColor(situacao) {
   return SITUATION_COLOR_MAP[dotClass] || SITUATION_COLOR_MAP["status-dot--gray"];
 }
 
+export function hasValidSituacao(situacao) {
+  return getSituationDotClass(situacao || "") !== "status-dot--gray";
+}
+
 export function isOutOfService(codigolinha) {
   return String(codigolinha ?? "").trim().toUpperCase() === "REC";
 }

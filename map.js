@@ -21,6 +21,7 @@ import {
   formatDateLabel,
   getInterpolatedPoint,
   getMarkerColor,
+  hasValidSituacao,
   isOutOfService,
   matchesCurrentFilter,
   parseVehicleFilter,
@@ -459,9 +460,11 @@ function renderFrame(t) {
       hexEl.style.background = getMarkerColor(point.situacao);
     }
 
+    const belowOtherVehicles = outOfService || !hasValidSituacao(point.situacao);
+
     markerEl?.classList.toggle("vehicle-hex-marker--out-of-service", outOfService);
     markerEl?.classList.toggle("vehicle-hex-marker--stale", Boolean(point.stale));
-    marker.setZIndexOffset(outOfService ? -1000 : 0);
+    marker.setZIndexOffset(belowOtherVehicles ? -1000 : 0);
     marker.setTooltipContent(buildTooltipHtml(cod, point, track));
   }
 
@@ -728,16 +731,20 @@ async function updateLineRoute() {
 
     if (geoJson) {
       const routeColor = getLineRouteColor(lineRecord);
+      const isPointFeature = (feature) =>
+        feature?.geometry?.type === "Point" || feature?.geometry?.type === "MultiPoint";
+
+      // A ordem de insercao no pane do Leaflet define a pilha visual: o
+      // shape (traçado) e adicionado primeiro para ficar embaixo, e os
+      // pontos de parada depois, para ficar por cima dele.
+      L.geoJSON(geoJson, {
+        filter: (feature) => !isPointFeature(feature),
+        style: { ...LINE_ROUTE_STYLE, color: routeColor },
+      }).addTo(routeLayer);
 
       L.geoJSON(geoJson, {
-        // Leaflet aplica "style" tambem sobre os layers criados por
-        // pointToLayer (circleMarker e um Path), entao precisa diferenciar
-        // por tipo de geometria para nao sobrescrever o estilo dos pontos
-        // com o estilo da linha.
-        style: (feature) =>
-          feature?.geometry?.type === "Point" || feature?.geometry?.type === "MultiPoint"
-            ? getLineRoutePointStyle(map.getZoom())
-            : { ...LINE_ROUTE_STYLE, color: routeColor },
+        filter: isPointFeature,
+        style: () => getLineRoutePointStyle(map.getZoom()),
         pointToLayer: (feature, latlng) => {
           const point = L.circleMarker(latlng, getLineRoutePointStyle(map.getZoom()));
           const stopName = feature?.properties?.nome;
