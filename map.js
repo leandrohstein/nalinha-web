@@ -42,12 +42,15 @@ function getLineRoutePointRadius(zoom) {
 }
 
 function getLineRoutePointStyle(zoom) {
+  const hidden = state.hideStopPoints;
+
   return {
     radius: getLineRoutePointRadius(zoom),
     color: "#000000",
     weight: 1,
     fillColor: "#9ca3af",
-    fillOpacity: 1,
+    fillOpacity: hidden ? 0 : 1,
+    opacity: hidden ? 0 : 1,
   };
 }
 
@@ -91,6 +94,7 @@ const ui = {
   cancelSyncBtn: document.querySelector("#cancelSyncBtn"),
   recenterBtn: null,
   hideOutOfServiceCheckbox: null,
+  hideStopPointsCheckbox: null,
   pipBtn: null,
   pipControls: document.querySelector("#pipControls"),
   pipTimeLabel: document.querySelector("#pipTimeLabel"),
@@ -116,6 +120,7 @@ const state = {
   wasPlayingBeforeSeek: false,
   syncToken: 0,
   hideOutOfService: false,
+  hideStopPoints: false,
   markerSize: getMarkerSizeForZoom(DEFAULT_ZOOM),
   lineRouteToken: 0,
   lastAutoJumpedEntryTime: null,
@@ -178,22 +183,22 @@ map.on("zoomend", () => {
     }
   }
 
-  updateRouteCircleRadii(zoom);
+  updateRoutePointStyles();
 });
 
-function updateRouteCircleRadii(zoom) {
-  const nextRadius = getLineRoutePointRadius(zoom);
+function updateRoutePointStyles() {
+  const style = getLineRoutePointStyle(map.getZoom());
 
   // routeLayer contem o grupo criado pelo L.geoJSON (nao os circleMarkers
   // diretamente), entao e preciso descer mais um nivel para alcancar os
-  // pontos e atualizar o raio deles ao trocar de zoom.
+  // pontos e atualizar o estilo deles (raio, cor, visibilidade) de uma vez.
   routeLayer.eachLayer((layer) => {
-    if (typeof layer.setRadius === "function") {
-      layer.setRadius(nextRadius);
+    if (typeof layer.setStyle === "function" && typeof layer.setRadius === "function") {
+      layer.setStyle(style);
     } else if (typeof layer.eachLayer === "function") {
       layer.eachLayer((subLayer) => {
         if (typeof subLayer.setRadius === "function") {
-          subLayer.setRadius(nextRadius);
+          subLayer.setStyle(style);
         }
       });
     }
@@ -367,6 +372,11 @@ const MapControls = L.Control.extend({
     this.hideOutOfServiceCheckbox.type = "checkbox";
     checkboxLabel.appendChild(document.createTextNode("Ocultar fora de operação"));
 
+    const stopPointsCheckboxLabel = L.DomUtil.create("label", "map-control-checkbox", container);
+    this.hideStopPointsCheckbox = L.DomUtil.create("input", "", stopPointsCheckboxLabel);
+    this.hideStopPointsCheckbox.type = "checkbox";
+    stopPointsCheckboxLabel.appendChild(document.createTextNode("Ocultar pontos de parada"));
+
     return container;
   },
 });
@@ -374,6 +384,7 @@ const MapControls = L.Control.extend({
 const mapControls = new MapControls();
 mapControls.addTo(map);
 ui.hideOutOfServiceCheckbox = mapControls.hideOutOfServiceCheckbox;
+ui.hideStopPointsCheckbox = mapControls.hideStopPointsCheckbox;
 
 ui.hideOutOfServiceCheckbox.addEventListener("change", () => {
   state.hideOutOfService = ui.hideOutOfServiceCheckbox.checked;
@@ -382,6 +393,12 @@ ui.hideOutOfServiceCheckbox.addEventListener("change", () => {
   if (state.track) {
     renderFrame(state.currentTime);
   }
+});
+
+ui.hideStopPointsCheckbox.addEventListener("change", () => {
+  state.hideStopPoints = ui.hideStopPointsCheckbox.checked;
+  trackGaEvent("toggle_hide_stop_points", { hidden: state.hideStopPoints });
+  updateRoutePointStyles();
 });
 
 function recomputeVisibleCods() {
