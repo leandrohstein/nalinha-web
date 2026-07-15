@@ -18,6 +18,7 @@ import {
 const DEFAULT_CENTER = [-25.4284, -49.2733];
 const DEFAULT_ZOOM = 12;
 const MARKER_SIZE = 10;
+const KEYBOARD_SEEK_STEP_MS = 60 * 1000;
 
 function createHexIcon() {
   return L.divIcon({
@@ -708,6 +709,26 @@ ui.seekRange.addEventListener("change", () => {
 
 ui.status.addEventListener("click", () => {
   ui.status.classList.add("chip-hidden");
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+    return;
+  }
+
+  if (document.activeElement === ui.searchInput || document.activeElement === ui.dateInput) {
+    return;
+  }
+
+  if (!state.track || state.currentTime === null) {
+    return;
+  }
+
+  event.preventDefault();
+
+  const direction = event.key === "ArrowRight" ? 1 : -1;
+  trackGaEvent("movement_keyboard_seek", { direction: direction > 0 ? "forward" : "backward" });
+  jumpToTime(state.currentTime + direction * KEYBOARD_SEEK_STEP_MS);
 });
 
 async function bootstrap() {
