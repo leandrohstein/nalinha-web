@@ -57,6 +57,13 @@
           <option value="20">20 min/s</option>
         </select>
       </div>
+
+      <div id="syncOverlay" class="sync-overlay hidden">
+        <div class="sync-overlay-box">
+          <p id="syncOverlayMessage" aria-live="assertive">Sincronizando dados...</p>
+          <button id="cancelSyncBtn" type="button">Cancelar sincronização</button>
+        </div>
+      </div>
     </section>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

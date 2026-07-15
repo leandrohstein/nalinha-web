@@ -1,6 +1,7 @@
 import { getMovementTrack, getDateKey, MOVEMENT_MAX_GAP_MS } from "./services/movementDataService.js";
 import { getLineData } from "./services/lineDataService.js";
 import { getVehicleTypeData } from "./services/vehicleTypeDataService.js";
+import { syncDayToCache } from "./services/dataSyncService.js";
 import {
   buildTooltipHtml,
   computeFilteredCods,
@@ -37,6 +38,9 @@ const ui = {
   totalTimeLabel: document.querySelector("#totalTimeLabel"),
   seekRange: document.querySelector("#seekRange"),
   speedSelect: document.querySelector("#speedSelect"),
+  syncOverlay: document.querySelector("#syncOverlay"),
+  syncOverlayMessage: document.querySelector("#syncOverlayMessage"),
+  cancelSyncBtn: document.querySelector("#cancelSyncBtn"),
 };
 
 const state = {
@@ -49,11 +53,34 @@ const state = {
   lastFrameWallClock: null,
   markers: new Map(),
   wasPlayingBeforeSeek: false,
+  syncToken: 0,
 };
 
 function setStatus(message) {
   ui.status.textContent = message;
   ui.status.classList.remove("chip-hidden");
+}
+
+function showSyncOverlay(message, options = {}) {
+  const { cancellable = false } = options;
+  ui.syncOverlayMessage.textContent = message;
+  ui.cancelSyncBtn.classList.toggle("hidden", !cancellable);
+  ui.syncOverlay.classList.remove("hidden");
+}
+
+function hideSyncOverlay() {
+  ui.syncOverlay.classList.add("hidden");
+}
+
+function updateDataControlsAvailability() {
+  const hasTrack = Boolean(state.track);
+
+  ui.searchInput.disabled = !hasTrack;
+  ui.clearSearchBtn.disabled = !hasTrack;
+  ui.restartBtn.disabled = !hasTrack;
+  ui.playPauseBtn.disabled = !hasTrack;
+  ui.seekRange.disabled = !hasTrack;
+  ui.speedSelect.disabled = !hasTrack;
 }
 
 function trackGaEvent(eventName, params = {}) {
@@ -241,15 +268,43 @@ async function loadDate(dateKey, options = {}) {
   clearMarkers();
   state.track = null;
   state.currentTime = null;
+  updateDataControlsAvailability();
 
-  setStatus(forceRebuild ? "Reprocessando trajetos a partir do IndexedDB..." : "Carregando trajetos processados...");
+  const syncToken = ++state.syncToken;
+  const isCancelled = () => state.syncToken !== syncToken;
 
   try {
-    const track = await getMovementTrack(dateKey, { forceRebuild });
+    if (!forceRebuild) {
+      showSyncOverlay(`Sincronizando dados de ${formatDateLabel(dateKey)}... (0%)`, { cancellable: true });
+
+      const syncResult = await syncDayToCache(dateKey, {
+        onStep: ({ processed, total }) => {
+          const percent = total > 0 ? Math.floor((processed / total) * 100) : 100;
+          showSyncOverlay(`Sincronizando dados de ${formatDateLabel(dateKey)}... (${percent}%)`, { cancellable: true });
+        },
+        isCancelled,
+      });
+
+      if (syncResult.cancelled || isCancelled()) {
+        return;
+      }
+
+      showSyncOverlay(`Validando e processando trajetos sincronizados de ${formatDateLabel(dateKey)}...`);
+    } else {
+      showSyncOverlay("Reprocessando trajetos a partir do IndexedDB...");
+    }
+
+    const track = await getMovementTrack(dateKey, { forceRebuild: true });
+
+    if (isCancelled()) {
+      return;
+    }
+
+    hideSyncOverlay();
 
     if (!track.timeline.length) {
       setStatus(
-        `Nenhum dado encontrado no IndexedDB para ${formatDateLabel(dateKey)}. Carregue essa data na página principal (botão "Período anterior") antes de tentar novamente.`
+        `Nenhum dado disponível para ${formatDateLabel(dateKey)} após a sincronização. Tente novamente mais tarde ou escolha outra data.`
       );
       ui.seekRange.max = "0";
       ui.seekRange.value = "0";
@@ -259,6 +314,7 @@ async function loadDate(dateKey, options = {}) {
     }
 
     state.track = track;
+    updateDataControlsAvailability();
     state.filteredCods = computeFilteredCods(track, ui.searchInput.value);
     recomputeVisibleCods();
     state.currentTime = track.startTime;
@@ -274,6 +330,11 @@ async function loadDate(dateKey, options = {}) {
     const vehicleCount = Object.keys(track.vehicles).length;
     setStatus(`Trajetos prontos: ${vehicleCount} veículo(s), ${track.timeline.length} instantâneo(s) em ${formatDateLabel(dateKey)}.`);
   } catch (error) {
+    if (isCancelled()) {
+      return;
+    }
+
+    hideSyncOverlay();
     const message = error instanceof Error ? error.message : String(error);
     setStatus(`Falha ao processar trajetos: ${message}`);
   }
@@ -299,6 +360,13 @@ ui.rebuildBtn.addEventListener("click", () => {
 
   trackGaEvent("rebuild_movement_date", { date: dateKey });
   loadDate(dateKey, { forceRebuild: true });
+});
+
+ui.cancelSyncBtn.addEventListener("click", () => {
+  trackGaEvent("cancel_movement_sync");
+  state.syncToken += 1;
+  hideSyncOverlay();
+  setStatus("Sincronização cancelada. Selecione uma data e clique em Carregar para tentar novamente.");
 });
 
 ui.searchInput.addEventListener("input", () => {
@@ -358,10 +426,11 @@ async function bootstrap() {
   const todayKey = getDateKey(new Date());
   ui.dateInput.max = todayKey;
   ui.dateInput.value = toDateInputValue(new Date());
+  updateDataControlsAvailability();
 
   setStatus("Carregando dados de linhas e tipos de veículo...");
   await Promise.allSettled([getLineData(), getVehicleTypeData()]);
-  await loadDate(todayKey);
+  setStatus("Selecione uma data e clique em Carregar para sincronizar e visualizar a movimentação.");
 }
 
 bootstrap();
