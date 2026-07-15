@@ -5,6 +5,8 @@ import { getById as getVehicleTypeById } from "./vehicleTypeDataService.js";
 
 export const MOVEMENT_MAX_GAP_MS = 6 * 60 * 1000;
 
+const VALID_VEHICLE_PREFIX_REGEX = /^[A-Z]{2}[0-9]{3}$/;
+
 function pad2(value) {
   return String(value).padStart(2, "0");
 }
@@ -82,7 +84,7 @@ export async function buildMovementTrack(dateKey) {
       const lat = toNumber(item.LAT);
       const lon = toNumber(item.LON);
 
-      if (!cod || lat === null || lon === null) {
+      if (!cod || !VALID_VEHICLE_PREFIX_REGEX.test(cod) || lat === null || lon === null) {
         continue;
       }
 
