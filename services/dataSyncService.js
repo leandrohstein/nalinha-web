@@ -52,7 +52,7 @@ async function fetchAndCacheMinute(targetDate) {
  * uma data antes de processa-la.
  */
 export async function syncDayToCache(dateKey, options = {}) {
-  const { onStep, isCancelled } = options;
+  const { onStep, isCancelled, fromMinute = 0 } = options;
 
   const dayStart = startOfDay(dateKey);
   const now = new Date();
@@ -60,11 +60,15 @@ export async function syncDayToCache(dateKey, options = {}) {
     ? new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0, 0)
     : new Date(dayStart.getFullYear(), dayStart.getMonth(), dayStart.getDate(), 23, 59, 0, 0);
 
-  const totalMinutes = Math.round((dayEnd.getTime() - dayStart.getTime()) / 60000) + 1;
+  const dayTotalMinutes = Math.round((dayEnd.getTime() - dayStart.getTime()) / 60000) + 1;
+  const startMinute = Math.min(Math.max(fromMinute, 0), dayTotalMinutes);
+  const totalMinutes = dayTotalMinutes - startMinute;
+  const dayReachesEndOfDay = dayEnd.getHours() === 23 && dayEnd.getMinutes() === 59;
 
   const summary = {
     rangeStart: dayStart,
     rangeEnd: dayEnd,
+    dayTotalMinutes,
     totalMinutes,
     processed: 0,
     cachedCount: 0,
@@ -72,15 +76,17 @@ export async function syncDayToCache(dateKey, options = {}) {
     missingCount: 0,
     failedCount: 0,
     cancelled: false,
+    syncedThroughMinute: startMinute - 1,
+    dayReachesEndOfDay,
   };
 
-  for (let t = dayStart.getTime(); t <= dayEnd.getTime(); t += 60000) {
+  for (let minute = startMinute; minute < dayTotalMinutes; minute += 1) {
     if (isCancelled?.()) {
       summary.cancelled = true;
       break;
     }
 
-    const targetDate = new Date(t);
+    const targetDate = new Date(dayStart.getTime() + minute * 60000);
     const status = await fetchAndCacheMinute(targetDate);
 
     if (isCancelled?.()) {
@@ -89,6 +95,7 @@ export async function syncDayToCache(dateKey, options = {}) {
     }
 
     summary.processed += 1;
+    summary.syncedThroughMinute = minute;
 
     if (status === "cache") {
       summary.cachedCount += 1;
@@ -108,6 +115,8 @@ export async function syncDayToCache(dateKey, options = {}) {
       total: totalMinutes,
     });
   }
+
+  summary.isComplete = !summary.cancelled && summary.syncedThroughMinute === dayTotalMinutes - 1;
 
   return summary;
 }

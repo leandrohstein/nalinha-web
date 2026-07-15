@@ -1,4 +1,5 @@
 import { getMovementTrack, getDateKey, MOVEMENT_MAX_GAP_MS } from "./services/movementDataService.js";
+import { movementDataRepository } from "./services/movementDataRepository.js";
 import { getLineData } from "./services/lineDataService.js";
 import { getVehicleTypeData } from "./services/vehicleTypeDataService.js";
 import { syncDayToCache } from "./services/dataSyncService.js";
@@ -558,33 +559,53 @@ async function loadDate(dateKey, options = {}) {
   const isCancelled = () => state.syncToken !== syncToken;
 
   try {
+    let syncResult = null;
+
     if (!forceRebuild) {
-      showSyncOverlay(`Sincronizando dados de ${formatDateLabel(dateKey)}... (0%)`, { cancellable: true });
+      const existingSyncState = await movementDataRepository.get(dateKey);
 
-      const syncResult = await syncDayToCache(dateKey, {
-        onStep: ({ processed, total }) => {
-          const percent = total > 0 ? Math.floor((processed / total) * 100) : 100;
-          showSyncOverlay(`Sincronizando dados de ${formatDateLabel(dateKey)}... (${percent}%)`, { cancellable: true });
-        },
-        isCancelled,
-      });
+      if (existingSyncState?.daySyncComplete) {
+        // O dia inteiro ja foi sincronizado e processado numa carga anterior
+        // (dado historico, imutavel) - nao ha necessidade de checar a API de
+        // novo nem de reconstruir o trajeto.
+        showSyncOverlay(`Dados de ${formatDateLabel(dateKey)} já sincronizados. Processando...`);
+      } else {
+        showSyncOverlay(`Sincronizando dados de ${formatDateLabel(dateKey)}... (0%)`, { cancellable: true });
 
-      if (syncResult.cancelled || isCancelled()) {
-        return;
+        syncResult = await syncDayToCache(dateKey, {
+          fromMinute: existingSyncState?.syncedThroughMinute != null ? existingSyncState.syncedThroughMinute + 1 : 0,
+          onStep: ({ processed, total }) => {
+            const percent = total > 0 ? Math.floor((processed / total) * 100) : 100;
+            showSyncOverlay(`Sincronizando dados de ${formatDateLabel(dateKey)}... (${percent}%)`, { cancellable: true });
+          },
+          isCancelled,
+        });
+
+        if (syncResult.cancelled || isCancelled()) {
+          return;
+        }
+
+        showSyncOverlay(`Validando e processando trajetos sincronizados de ${formatDateLabel(dateKey)}...`);
       }
-
-      showSyncOverlay(`Validando e processando trajetos sincronizados de ${formatDateLabel(dateKey)}...`);
     } else {
       showSyncOverlay("Reprocessando trajetos a partir do IndexedDB...");
     }
 
-    const track = await getMovementTrack(dateKey, { forceRebuild: true });
+    const track = await getMovementTrack(dateKey, { forceRebuild: forceRebuild || Boolean(syncResult) });
 
     if (isCancelled()) {
       return;
     }
 
     hideSyncOverlay();
+
+    if (syncResult) {
+      await movementDataRepository.set({
+        ...track,
+        syncedThroughMinute: syncResult.syncedThroughMinute,
+        daySyncComplete: syncResult.isComplete && syncResult.dayReachesEndOfDay,
+      });
+    }
 
     if (!track.timeline.length) {
       setStatus(
