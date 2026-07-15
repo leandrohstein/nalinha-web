@@ -590,3 +590,9 @@ body {
 .vehicle-hex-marker--out-of-service .hex-shape {
   opacity: 0.4;
 }
+
+.vehicle-hex-marker--stale .hex-shape {
+  border-style: dashed;
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35);
+}

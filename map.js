@@ -348,6 +348,7 @@ function renderFrame(t) {
     }
 
     markerEl?.classList.toggle("vehicle-hex-marker--out-of-service", outOfService);
+    markerEl?.classList.toggle("vehicle-hex-marker--stale", Boolean(point.stale));
     marker.setZIndexOffset(outOfService ? -1000 : 0);
     marker.setTooltipContent(buildTooltipHtml(cod, point, track));
   }

@@ -57,6 +57,7 @@ export function getInterpolatedPoint(frames, t, maxGapMs) {
     sent: ratio < 0.5 ? a.sent : b.sent,
     tabela: ratio < 0.5 ? a.tabela : b.tabela,
     adapt: ratio < 0.5 ? a.adapt : b.adapt,
+    stale: ratio < 0.5 ? a.stale : b.stale,
     ratio,
   };
 }
@@ -109,11 +110,13 @@ export function buildTooltipHtml(cod, point, track) {
   const lineLabel = track.lineLabels[point.codigolinha] ?? point.codigolinha ?? "";
   const vehicleTypeLabel = track.vehicleTypeLabels[point.tipoVeic] ?? "";
   const adaptBadge = point.adapt === "1" ? " ♿" : "";
+  const staleBadge = point.stale ? " ⚠️" : "";
 
   const lines = [
-    `<strong>${escapeHtml(cod)}</strong>${adaptBadge}`,
+    `<strong>${escapeHtml(cod)}</strong>${adaptBadge}${staleBadge}`,
     lineLabel ? escapeHtml(lineLabel) : "",
     [point.situacao, vehicleTypeLabel].filter(Boolean).map(escapeHtml).join(" • "),
+    point.stale ? "Sem atualização neste minuto" : "",
   ].filter(Boolean);
 
   return lines.join("<br>");

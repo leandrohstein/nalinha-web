@@ -25,6 +25,27 @@ function parseDateTimeKeyToEpoch(dateTimeKey) {
   return new Date(year, month - 1, day, hour, minute, 0, 0).getTime();
 }
 
+function parseRefreshToEpoch(dateKey, refreshValue) {
+  if (refreshValue == null) {
+    return null;
+  }
+
+  const match = String(refreshValue).trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!match) {
+    return null;
+  }
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+
+  if (hour > 23 || minute > 59) {
+    return null;
+  }
+
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return new Date(year, month - 1, day, hour, minute, 0, 0).getTime();
+}
+
 function toNumber(value) {
   const num = Number(value);
   return Number.isFinite(num) ? num : null;
@@ -65,26 +86,46 @@ export async function buildMovementTrack(dateKey) {
   const sortedEntries = [...entries].sort((a, b) => a.dateTimeKey.localeCompare(b.dateTimeKey));
 
   const vehicleFrames = new Map();
+  const lastKnownByVehicle = new Map();
   const codigolinhaSet = new Set();
   const tipoVeicSet = new Set();
   const timelineSet = new Set();
 
   for (const entry of sortedEntries) {
-    const t = parseDateTimeKeyToEpoch(entry.dateTimeKey);
     const items = extractVehicleItems(entry.data);
-
-    if (items.length === 0) {
-      continue;
-    }
-
-    timelineSet.add(t);
 
     for (const item of items) {
       const cod = String(item.COD ?? "").trim();
+
+      if (!cod || !VALID_VEHICLE_PREFIX_REGEX.test(cod)) {
+        continue;
+      }
+
+      const refreshTime = parseRefreshToEpoch(dateKey, item.REFRESH);
+
+      if (!vehicleFrames.has(cod)) {
+        vehicleFrames.set(cod, new Map());
+      }
+
+      if (refreshTime === null) {
+        // Sem REFRESH valido neste minuto sincronizado: mantem a ultima
+        // posicao conhecida do veiculo (se houver) marcada como
+        // desatualizada, em vez de descartar o instante por completo.
+        const lastKnown = lastKnownByVehicle.get(cod);
+        if (!lastKnown) {
+          continue;
+        }
+
+        const fileTime = parseDateTimeKeyToEpoch(entry.dateTimeKey);
+        timelineSet.add(fileTime);
+        vehicleFrames.get(cod).set(fileTime, { ...lastKnown, t: fileTime, stale: true });
+        continue;
+      }
+
       const lat = toNumber(item.LAT);
       const lon = toNumber(item.LON);
 
-      if (!cod || !VALID_VEHICLE_PREFIX_REGEX.test(cod) || lat === null || lon === null) {
+      if (lat === null || lon === null) {
         continue;
       }
 
@@ -103,12 +144,8 @@ export async function buildMovementTrack(dateKey) {
         .map((value) => (value == null ? "" : String(value)))
         .filter(Boolean);
 
-      if (!vehicleFrames.has(cod)) {
-        vehicleFrames.set(cod, []);
-      }
-
-      vehicleFrames.get(cod).push({
-        t,
+      const frame = {
+        t: refreshTime,
         lat,
         lon,
         codigolinha,
@@ -117,16 +154,25 @@ export async function buildMovementTrack(dateKey) {
         situacao: situacaoParts.join(" / "),
         sent: item.SENT != null ? String(item.SENT) : "",
         tabela: item.TABELA != null ? String(item.TABELA) : "",
-      });
+        stale: false,
+      };
+
+      timelineSet.add(refreshTime);
+
+      // Sobrescreve intencionalmente: se o mesmo veiculo repetir o REFRESH
+      // em arquivos sincronizados diferentes, fica o snapshot mais recente
+      // buscado para aquele minuto (sortedEntries esta em ordem cronologica
+      // de sincronizacao), evitando dois quadros com o mesmo "t".
+      vehicleFrames.get(cod).set(refreshTime, frame);
+      lastKnownByVehicle.set(cod, frame);
     }
   }
 
   const { lineLabels, vehicleTypeLabels } = await buildLabelMaps(codigolinhaSet, tipoVeicSet);
 
   const vehicles = {};
-  for (const [cod, frames] of vehicleFrames) {
-    frames.sort((a, b) => a.t - b.t);
-    vehicles[cod] = frames;
+  for (const [cod, frameMap] of vehicleFrames) {
+    vehicles[cod] = [...frameMap.values()].sort((a, b) => a.t - b.t);
   }
 
   const timeline = [...timelineSet].sort((a, b) => a - b);
