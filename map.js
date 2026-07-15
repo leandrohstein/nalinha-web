@@ -13,7 +13,16 @@ import {
 
 const DEFAULT_CENTER = [-25.4284, -49.2733];
 const DEFAULT_ZOOM = 12;
-const MARKER_RADIUS = 6;
+const MARKER_SIZE = 10;
+
+function createHexIcon() {
+  return L.divIcon({
+    className: "vehicle-hex-marker",
+    html: '<div class="hex-shape"></div>',
+    iconSize: [MARKER_SIZE, MARKER_SIZE],
+    iconAnchor: [MARKER_SIZE / 2, MARKER_SIZE / 2],
+  });
+}
 
 const ui = {
   status: document.querySelector("#status"),
@@ -95,19 +104,17 @@ function renderFrame(t) {
 
     let marker = state.markers.get(cod);
     if (!marker) {
-      marker = L.circleMarker([point.lat, point.lon], {
-        radius: MARKER_RADIUS,
-        weight: 1.5,
-        color: "#1e293b",
-        fillOpacity: 0.9,
-      }).addTo(markerLayer);
+      marker = L.marker([point.lat, point.lon], { icon: createHexIcon() }).addTo(markerLayer);
       marker.bindTooltip("", { direction: "top", offset: [0, -8] });
       state.markers.set(cod, marker);
     } else {
       marker.setLatLng([point.lat, point.lon]);
     }
 
-    marker.setStyle({ fillColor: getMarkerColor(point.situacao) });
+    const hexEl = marker.getElement()?.querySelector(".hex-shape");
+    if (hexEl) {
+      hexEl.style.background = getMarkerColor(point.situacao);
+    }
     marker.setTooltipContent(buildTooltipHtml(cod, point, track));
   }
 
