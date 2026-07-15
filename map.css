@@ -231,7 +231,9 @@ body {
 }
 
 /* ── map ── */
-#map {
+#map,
+.map-pip-placeholder {
+  position: relative;
   flex: 1;
   min-height: 420px;
   border-radius: 10px;
@@ -239,14 +241,110 @@ body {
   background: #f8fafc;
 }
 
+.map-pip-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  padding: 24px;
+  box-sizing: border-box;
+  color: #475569;
+}
+
+.map-pip-placeholder.hidden {
+  display: none;
+}
+
+.map-pip-placeholder p {
+  margin: 0;
+  font-size: 14px;
+  max-width: 320px;
+}
+
+.map-pip-placeholder button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.map-pip-placeholder button:hover {
+  background: #1d4ed8;
+}
+
 .leaflet-tooltip {
   font-size: 12px;
   line-height: 1.4;
 }
 
-/* ── map controls (recentralizar / ocultar fora de operação) ── */
-.leaflet-control-recenter {
-  font-size: 15px;
+.pip-controls {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pip-controls.hidden {
+  display: none;
+}
+
+.pip-play-pause-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.75);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pip-play-pause-btn:hover {
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.pip-play-pause-btn:disabled {
+  background: rgba(148, 163, 184, 0.6);
+  cursor: not-allowed;
+}
+
+.pip-time-label {
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.75);
+  color: #e2e8f0;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 13px;
+  pointer-events: none;
+}
+
+/* ── map controls (recentralizar / ocultar fora de operação / PiP) ── */
+.leaflet-control-recenter,
+.leaflet-control-pip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.leaflet-control-pip.leaflet-disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.leaflet-control-pip--active {
+  background: #dbeafe;
 }
 
 .map-controls-panel {
@@ -458,7 +556,8 @@ body {
     min-width: 0;
   }
 
-  #map {
+  #map,
+  .map-pip-placeholder {
     min-height: 280px;
   }
 

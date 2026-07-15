@@ -39,12 +39,25 @@
         </div>
       </div>
 
-      <div id="map"></div>
+      <div id="mapPipPlaceholder" class="map-pip-placeholder hidden">
+        <p>O mapa está sendo exibido em Picture-in-Picture.</p>
+        <button id="returnFromPipBtn" type="button">Retornar mapa para esta aba</button>
+      </div>
+      <div id="map">
+        <div id="pipControls" class="pip-controls hidden">
+          <button id="pipPlayPauseBtn" type="button" class="pip-play-pause-btn" aria-label="Play/Pause">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>
+          </button>
+          <span id="pipTimeLabel" class="pip-time-label" aria-hidden="true"></span>
+        </div>
+      </div>
 
       <div class="player-bar">
         <div class="player-buttons">
           <button id="restartBtn" type="button" title="Reiniciar" aria-label="Reiniciar">⏮</button>
-          <button id="playPauseBtn" type="button" title="Play/Pause" aria-label="Play/Pause">▶</button>
+          <button id="playPauseBtn" type="button" title="Play/Pause" aria-label="Play/Pause">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>
+          </button>
         </div>
         <span id="currentTimeLabel" class="time-label">--:--:--</span>
         <div class="seek-wrapper">

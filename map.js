@@ -45,6 +45,12 @@ const ui = {
   cancelSyncBtn: document.querySelector("#cancelSyncBtn"),
   recenterBtn: null,
   hideOutOfServiceCheckbox: null,
+  pipBtn: null,
+  pipControls: document.querySelector("#pipControls"),
+  pipTimeLabel: document.querySelector("#pipTimeLabel"),
+  pipPlayPauseBtn: document.querySelector("#pipPlayPauseBtn"),
+  mapPipPlaceholder: document.querySelector("#mapPipPlaceholder"),
+  returnFromPipBtn: document.querySelector("#returnFromPipBtn"),
 };
 
 const state = {
@@ -84,6 +90,7 @@ function updateDataControlsAvailability() {
   ui.clearSearchBtn.disabled = !hasTrack;
   ui.restartBtn.disabled = !hasTrack;
   ui.playPauseBtn.disabled = !hasTrack;
+  ui.pipPlayPauseBtn.disabled = !hasTrack;
   ui.seekRange.disabled = !hasTrack;
   ui.speedSelect.disabled = !hasTrack;
 }
@@ -103,6 +110,9 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 }).addTo(map);
 const markerLayer = L.layerGroup().addTo(map);
 
+const PIP_SUPPORTED = "documentPictureInPicture" in window;
+let pipWindow = null;
+
 const RecenterControl = L.Control.extend({
   options: { position: "topleft" },
 
@@ -114,7 +124,23 @@ const RecenterControl = L.Control.extend({
     this.recenterBtn.title = "Centralizar mapa nos veículos";
     this.recenterBtn.setAttribute("role", "button");
     this.recenterBtn.setAttribute("aria-label", "Centralizar mapa nos veículos");
-    this.recenterBtn.innerHTML = "🎯";
+    this.recenterBtn.innerHTML =
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"></circle><line x1="12" y1="2" x2="12" y2="7"></line><line x1="12" y1="17" x2="12" y2="22"></line><line x1="2" y1="12" x2="7" y2="12"></line><line x1="17" y1="12" x2="22" y2="12"></line></svg>';
+
+    this.pipBtn = L.DomUtil.create("a", "leaflet-control-pip", container);
+    this.pipBtn.href = "#";
+    this.pipBtn.setAttribute("role", "button");
+    this.pipBtn.innerHTML =
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="1.5"></rect><rect x="12" y="12" width="8" height="6" rx="1" fill="currentColor" stroke="none"></rect></svg>';
+
+    if (PIP_SUPPORTED) {
+      this.pipBtn.title = "Ver o mapa em Picture-in-Picture";
+      this.pipBtn.setAttribute("aria-label", "Ver o mapa em Picture-in-Picture");
+    } else {
+      this.pipBtn.classList.add("leaflet-disabled");
+      this.pipBtn.setAttribute("aria-disabled", "true");
+      this.pipBtn.title = "Picture-in-Picture não é suportado neste navegador";
+    }
 
     L.DomEvent.disableClickPropagation(container);
 
@@ -125,6 +151,7 @@ const RecenterControl = L.Control.extend({
 const recenterControl = new RecenterControl();
 recenterControl.addTo(map);
 ui.recenterBtn = recenterControl.recenterBtn;
+ui.pipBtn = recenterControl.pipBtn;
 
 ui.recenterBtn.addEventListener("click", (event) => {
   event.preventDefault();
@@ -135,6 +162,106 @@ ui.recenterBtn.addEventListener("click", (event) => {
   } else {
     map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
   }
+});
+
+L.DomEvent.disableClickPropagation(ui.pipControls);
+
+function setPipActive(active) {
+  ui.pipBtn.classList.toggle("leaflet-control-pip--active", active);
+  ui.pipControls.classList.toggle("hidden", !active);
+  ui.mapPipPlaceholder.classList.toggle("hidden", !active);
+}
+
+ui.returnFromPipBtn.addEventListener("click", () => {
+  trackGaEvent("return_map_from_pip");
+  pipWindow?.close();
+});
+
+function restoreMapFromPip(mapContainer, originalParent, originalNextSibling) {
+  if (originalNextSibling) {
+    originalParent.insertBefore(mapContainer, originalNextSibling);
+  } else {
+    originalParent.appendChild(mapContainer);
+  }
+
+  pipWindow = null;
+  setPipActive(false);
+  requestAnimationFrame(() => map.invalidateSize());
+}
+
+async function enterPip() {
+  const mapContainer = document.querySelector("#map");
+  const originalParent = mapContainer.parentElement;
+  const originalNextSibling = mapContainer.nextElementSibling;
+
+  pipWindow = await window.documentPictureInPicture.requestWindow({
+    width: 420,
+    height: 340,
+  });
+
+  document.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
+    pipWindow.document.head.appendChild(link.cloneNode(true));
+  });
+
+  const resetStyle = pipWindow.document.createElement("style");
+  resetStyle.textContent = `
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      display: block !important;
+      background: #0f172a;
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      border-radius: 0;
+      border: none;
+    }
+  `;
+  pipWindow.document.head.appendChild(resetStyle);
+
+  pipWindow.document.body.appendChild(mapContainer);
+  setPipActive(true);
+  requestAnimationFrame(() => map.invalidateSize());
+
+  pipWindow.addEventListener(
+    "pagehide",
+    () => {
+      restoreMapFromPip(mapContainer, originalParent, originalNextSibling);
+    },
+    { once: true }
+  );
+}
+
+function togglePip() {
+  if (!PIP_SUPPORTED) {
+    return;
+  }
+
+  if (pipWindow) {
+    pipWindow.close();
+    return;
+  }
+
+  enterPip().catch((error) => {
+    pipWindow = null;
+    const message = error instanceof Error ? error.message : String(error);
+    setStatus(`Falha ao abrir Picture-in-Picture: ${message}`);
+  });
+}
+
+ui.pipBtn.addEventListener("click", (event) => {
+  event.preventDefault();
+
+  if (!PIP_SUPPORTED) {
+    return;
+  }
+
+  trackGaEvent("toggle_map_pip", { active: pipWindow ? "off" : "on" });
+  togglePip();
 });
 
 const MapControls = L.Control.extend({
@@ -232,6 +359,8 @@ function renderFrame(t) {
     }
   }
 
+  ui.pipTimeLabel.textContent = formatClock(t);
+
   const suffix = state.filteredCods ? ` de ${state.visibleCods.length} filtrado(s)` : "";
   setStatus(
     `${activeCods.size} veículo${activeCods.size !== 1 ? "s" : ""} em tela${suffix} — ${formatDateLabel(track.dateKey)} ${formatClock(t)}`
@@ -305,8 +434,14 @@ function jumpToTime(targetTime) {
   }
 }
 
+const PLAY_ICON_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>';
+const PAUSE_ICON_SVG =
+  '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"></rect><rect x="14" y="5" width="4" height="14"></rect></svg>';
+
 function updatePlayPauseUi() {
-  ui.playPauseBtn.textContent = state.playing ? "⏸" : "▶";
+  const icon = state.playing ? PAUSE_ICON_SVG : PLAY_ICON_SVG;
+  ui.playPauseBtn.innerHTML = icon;
+  ui.pipPlayPauseBtn.innerHTML = icon;
 }
 
 function pause() {
@@ -524,7 +659,7 @@ ui.restartBtn.addEventListener("click", () => {
   restart();
 });
 
-ui.playPauseBtn.addEventListener("click", () => {
+function togglePlayPause() {
   if (state.playing) {
     trackGaEvent("movement_pause");
     pause();
@@ -533,7 +668,10 @@ ui.playPauseBtn.addEventListener("click", () => {
 
   trackGaEvent("movement_play");
   play();
-});
+}
+
+ui.playPauseBtn.addEventListener("click", togglePlayPause);
+ui.pipPlayPauseBtn.addEventListener("click", togglePlayPause);
 
 ui.seekRange.addEventListener("pointerdown", () => {
   state.wasPlayingBeforeSeek = state.playing;
