@@ -18,15 +18,25 @@ import {
 
 const DEFAULT_CENTER = [-25.4284, -49.2733];
 const DEFAULT_ZOOM = 12;
-const MARKER_SIZE = 10;
 const KEYBOARD_SEEK_STEP_MS = 60 * 1000;
 
-function createHexIcon() {
+const MARKER_SIZE_MIN_ZOOM = 11;
+const MARKER_SIZE_MAX_ZOOM = 17;
+const MARKER_SIZE_MIN = 6;
+const MARKER_SIZE_MAX = 16;
+
+function getMarkerSizeForZoom(zoom) {
+  const clampedZoom = Math.min(Math.max(zoom, MARKER_SIZE_MIN_ZOOM), MARKER_SIZE_MAX_ZOOM);
+  const ratio = (clampedZoom - MARKER_SIZE_MIN_ZOOM) / (MARKER_SIZE_MAX_ZOOM - MARKER_SIZE_MIN_ZOOM);
+  return Math.round(MARKER_SIZE_MIN + (MARKER_SIZE_MAX - MARKER_SIZE_MIN) * ratio);
+}
+
+function createHexIcon(size) {
   return L.divIcon({
     className: "vehicle-hex-marker",
     html: '<div class="hex-shape"></div>',
-    iconSize: [MARKER_SIZE, MARKER_SIZE],
-    iconAnchor: [MARKER_SIZE / 2, MARKER_SIZE / 2],
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 }
 
@@ -70,6 +80,7 @@ const state = {
   wasPlayingBeforeSeek: false,
   syncToken: 0,
   hideOutOfService: false,
+  markerSize: getMarkerSizeForZoom(DEFAULT_ZOOM),
 };
 
 function setStatus(message) {
@@ -114,6 +125,20 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19,
 }).addTo(map);
 const markerLayer = L.layerGroup().addTo(map);
+
+map.on("zoomend", () => {
+  const nextSize = getMarkerSizeForZoom(map.getZoom());
+  if (nextSize === state.markerSize) {
+    return;
+  }
+
+  state.markerSize = nextSize;
+
+  if (state.track && state.currentTime !== null) {
+    clearMarkers();
+    renderFrame(state.currentTime);
+  }
+});
 
 const PIP_SUPPORTED = "documentPictureInPicture" in window;
 let pipWindow = null;
@@ -342,7 +367,7 @@ function renderFrame(t) {
 
     let marker = state.markers.get(cod);
     if (!marker) {
-      marker = L.marker([point.lat, point.lon], { icon: createHexIcon() }).addTo(markerLayer);
+      marker = L.marker([point.lat, point.lon], { icon: createHexIcon(state.markerSize) }).addTo(markerLayer);
       marker.bindTooltip("", { direction: "top", offset: [0, -8] });
       state.markers.set(cod, marker);
     } else {
