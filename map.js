@@ -9,6 +9,7 @@ import {
   buildTooltipHtml,
   computeFilteredCods,
   computeFirstLineEntryTime,
+  computeOperationWindows,
   formatClock,
   formatDateLabel,
   getInterpolatedPoint,
@@ -95,6 +96,7 @@ const state = {
   track: null,
   filterInfo: null,
   filteredCods: null,
+  operationWindows: null,
   visibleCods: [],
   playing: false,
   currentTime: null,
@@ -400,7 +402,7 @@ function renderFrame(t) {
       continue;
     }
 
-    if (!matchesCurrentFilter(state.filterInfo, point)) {
+    if (!matchesCurrentFilter(state.filterInfo, point, cod, state.operationWindows)) {
       continue;
     }
 
@@ -708,6 +710,7 @@ function scheduleLineRouteUpdate() {
 function applyFilter() {
   state.filterInfo = state.track ? parseVehicleFilter(ui.searchInput.value) : null;
   state.filteredCods = state.track ? computeFilteredCods(state.track, state.filterInfo) : null;
+  state.operationWindows = state.track ? computeOperationWindows(state.track, state.filterInfo) : null;
   recomputeVisibleCods();
   scheduleLineRouteUpdate();
   renderLineEntryMark(state.track, state.filterInfo);
@@ -795,6 +798,7 @@ async function loadDate(dateKey, options = {}) {
     updateDataControlsAvailability();
     state.filterInfo = parseVehicleFilter(ui.searchInput.value);
     state.filteredCods = computeFilteredCods(track, state.filterInfo);
+    state.operationWindows = computeOperationWindows(track, state.filterInfo);
     recomputeVisibleCods();
     state.currentTime = track.startTime;
 

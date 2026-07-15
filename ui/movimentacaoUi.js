@@ -113,12 +113,79 @@ export function computeFilteredCods(track, filter) {
   );
 }
 
-export function matchesCurrentFilter(filter, point) {
+/**
+ * Para o filtro por linha, calcula por veiculo as janelas de tempo em que
+ * ele deve ser exibido. Os quadros de cada veiculo sao divididos em blocos
+ * delimitados por trechos em "outra linha" (nao REC, nao a linha filtrada);
+ * cada bloco que contem ao menos um quadro na linha filtrada vira uma janela
+ * (do inicio do bloco - ou seja, incluindo o "fora de operacao" que o
+ * antecede - ate o proximo trecho em outra linha, ou o fim do dia). Um
+ * veiculo pode ter varias janelas nao contiguas ao longo do dia: se ele
+ * voltar a operar a mesma linha depois de rodar em outra linha, um novo
+ * ciclo REC -> linha -> REC e reconhecido como uma nova janela. Retorna
+ * null se o filtro nao for por linha.
+ */
+export function computeOperationWindows(track, filter) {
+  if (!filter || filter.field !== "linha") {
+    return null;
+  }
+
+  const windows = new Map();
+
+  for (const [cod, frames] of Object.entries(track.vehicles)) {
+    const vehicleWindows = [];
+    let blockStartIdx = null;
+    let blockHasMatch = false;
+
+    for (let i = 0; i <= frames.length; i += 1) {
+      const frame = frames[i];
+      const isOther =
+        frame && !isOutOfService(frame.codigolinha) && !normalizeText(frame.codigolinha).startsWith(filter.value);
+
+      if (frame && !isOther) {
+        if (blockStartIdx === null) {
+          blockStartIdx = i;
+        }
+
+        if (!isOutOfService(frame.codigolinha)) {
+          blockHasMatch = true;
+        }
+
+        continue;
+      }
+
+      if (blockStartIdx !== null) {
+        if (blockHasMatch) {
+          vehicleWindows.push({
+            start: frames[blockStartIdx].t,
+            end: frame ? frame.t : Infinity,
+          });
+        }
+
+        blockStartIdx = null;
+        blockHasMatch = false;
+      }
+    }
+
+    if (vehicleWindows.length > 0) {
+      windows.set(cod, vehicleWindows);
+    }
+  }
+
+  return windows;
+}
+
+export function matchesCurrentFilter(filter, point, cod, operationWindows) {
   if (!filter || filter.field !== "linha") {
     return true;
   }
 
-  return isOutOfService(point.codigolinha) || normalizeText(point.codigolinha).startsWith(filter.value);
+  const vehicleWindows = operationWindows?.get(cod);
+  if (!vehicleWindows) {
+    return false;
+  }
+
+  return vehicleWindows.some((window) => point.t >= window.start && point.t < window.end);
 }
 
 /**
