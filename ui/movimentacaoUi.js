@@ -121,6 +121,39 @@ export function matchesCurrentFilter(filter, point) {
   return isOutOfService(point.codigolinha) || normalizeText(point.codigolinha).startsWith(filter.value);
 }
 
+/**
+ * Primeiro instante do dia em que algum veiculo deixa de estar "fora de
+ * operacao" (REC) e passa a mostrar a linha filtrada. Retorna null se o
+ * filtro nao for por linha ou se nenhum veiculo entrar na linha.
+ */
+export function computeFirstLineEntryTime(track, filter) {
+  if (!track || !filter || filter.field !== "linha") {
+    return null;
+  }
+
+  let earliest = null;
+
+  for (const frames of Object.values(track.vehicles)) {
+    for (const frame of frames) {
+      if (isOutOfService(frame.codigolinha)) {
+        continue;
+      }
+
+      if (!normalizeText(frame.codigolinha).startsWith(filter.value)) {
+        continue;
+      }
+
+      if (earliest === null || frame.t < earliest) {
+        earliest = frame.t;
+      }
+
+      break;
+    }
+  }
+
+  return earliest;
+}
+
 export function buildTooltipHtml(cod, point, track) {
   const lineLabel = track.lineLabels[point.codigolinha] ?? point.codigolinha ?? "";
   const vehicleTypeLabel = track.vehicleTypeLabels[point.tipoVeic] ?? "";

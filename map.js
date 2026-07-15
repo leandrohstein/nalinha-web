@@ -8,6 +8,7 @@ import { getLineRouteColor } from "./services/lineColorService.js";
 import {
   buildTooltipHtml,
   computeFilteredCods,
+  computeFirstLineEntryTime,
   formatClock,
   formatDateLabel,
   getInterpolatedPoint,
@@ -75,6 +76,7 @@ const ui = {
   totalTimeLabel: document.querySelector("#totalTimeLabel"),
   seekRange: document.querySelector("#seekRange"),
   seekHourMarks: document.querySelector("#seekHourMarks"),
+  lineEntryMark: document.querySelector("#lineEntryMark"),
   speedSelect: document.querySelector("#speedSelect"),
   syncOverlay: document.querySelector("#syncOverlay"),
   syncOverlayMessage: document.querySelector("#syncOverlayMessage"),
@@ -497,6 +499,37 @@ function renderHourMarks(track) {
   }
 }
 
+function renderLineEntryMark(track, filter) {
+  const entryTime = computeFirstLineEntryTime(track, filter);
+
+  if (entryTime === null) {
+    ui.lineEntryMark.classList.add("hidden");
+    delete ui.lineEntryMark.dataset.entryTime;
+    return;
+  }
+
+  const totalDuration = track.endTime - track.startTime;
+  const percent = totalDuration > 0 ? ((entryTime - track.startTime) / totalDuration) * 100 : 0;
+  const label = formatClock(entryTime);
+
+  ui.lineEntryMark.style.left = `${percent}%`;
+  ui.lineEntryMark.title = `Primeiro veículo entra na linha às ${label}`;
+  ui.lineEntryMark.setAttribute("aria-label", `Saltar para o momento em que o primeiro veículo entra na linha, às ${label}`);
+  ui.lineEntryMark.dataset.entryTime = String(entryTime);
+  ui.lineEntryMark.classList.remove("hidden");
+}
+
+ui.lineEntryMark.addEventListener("click", () => {
+  const entryTime = Number(ui.lineEntryMark.dataset.entryTime);
+
+  if (!Number.isFinite(entryTime)) {
+    return;
+  }
+
+  trackGaEvent("movement_jump_line_entry");
+  jumpToTime(entryTime);
+});
+
 function jumpToTime(targetTime) {
   if (!state.track) {
     return;
@@ -677,6 +710,7 @@ function applyFilter() {
   state.filteredCods = state.track ? computeFilteredCods(state.track, state.filterInfo) : null;
   recomputeVisibleCods();
   scheduleLineRouteUpdate();
+  renderLineEntryMark(state.track, state.filterInfo);
 
   if (state.track) {
     renderFrame(state.currentTime);
@@ -692,6 +726,7 @@ async function loadDate(dateKey, options = {}) {
   state.currentTime = null;
   updateDataControlsAvailability();
   renderHourMarks(null);
+  renderLineEntryMark(null, null);
 
   const syncToken = ++state.syncToken;
   const isCancelled = () => state.syncToken !== syncToken;
@@ -767,6 +802,7 @@ async function loadDate(dateKey, options = {}) {
     ui.seekRange.value = "0";
     ui.totalTimeLabel.textContent = formatClock(track.endTime);
     renderHourMarks(track);
+    renderLineEntryMark(track, state.filterInfo);
 
     fitMapToTrack(track);
     renderFrame(state.currentTime);
