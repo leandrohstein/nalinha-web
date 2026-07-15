@@ -26,6 +26,7 @@ import {
   parseVehicleFilter,
   toDateInputValue,
 } from "./ui/movimentacaoUi.js";
+import { escapeHtml } from "./ui/nalinhaUi.js";
 
 const DEFAULT_CENTER = [-25.4284, -49.2733];
 const DEFAULT_ZOOM = 12;
@@ -737,7 +738,16 @@ async function updateLineRoute() {
           feature?.geometry?.type === "Point" || feature?.geometry?.type === "MultiPoint"
             ? getLineRoutePointStyle(map.getZoom())
             : { ...LINE_ROUTE_STYLE, color: routeColor },
-        pointToLayer: (_feature, latlng) => L.circleMarker(latlng, getLineRoutePointStyle(map.getZoom())),
+        pointToLayer: (feature, latlng) => {
+          const point = L.circleMarker(latlng, getLineRoutePointStyle(map.getZoom()));
+          const stopName = feature?.properties?.nome;
+
+          if (stopName) {
+            point.bindTooltip(escapeHtml(stopName), { direction: "top", offset: [0, -6] });
+          }
+
+          return point;
+        },
       }).addTo(routeLayer);
     }
   } catch (error) {
