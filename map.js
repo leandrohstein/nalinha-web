@@ -1,4 +1,11 @@
-import { getMovementTrack, getDateKey, MOVEMENT_MAX_GAP_MS } from "./services/movementDataService.js";
+import {
+  getMovementTrack,
+  getDateKey,
+  getNextDayExtensionCutoff,
+  getPreviousDayLateFrames,
+  getNextDayEarlyFrames,
+  MOVEMENT_MAX_GAP_MS,
+} from "./services/movementDataService.js";
 import { movementDataRepository } from "./services/movementDataRepository.js";
 import { getByCod, getLineData } from "./services/lineDataService.js";
 import { getVehicleTypeData } from "./services/vehicleTypeDataService.js";
@@ -97,6 +104,9 @@ const state = {
   filterInfo: null,
   filteredCods: null,
   operationWindows: null,
+  extendedVehicleFrames: new Map(),
+  effectiveEndTime: null,
+  operationWindowsToken: 0,
   visibleCods: [],
   playing: false,
   currentTime: null,
@@ -108,6 +118,7 @@ const state = {
   hideOutOfService: false,
   markerSize: getMarkerSizeForZoom(DEFAULT_ZOOM),
   lineRouteToken: 0,
+  lastAutoJumpedEntryTime: null,
 };
 
 function setStatus(message) {
@@ -395,7 +406,7 @@ function renderFrame(t) {
   const activeCods = new Set();
 
   for (const cod of state.visibleCods) {
-    const frames = track.vehicles[cod];
+    const frames = state.extendedVehicleFrames.get(cod) ?? track.vehicles[cod];
     const point = getInterpolatedPoint(frames, t, MOVEMENT_MAX_GAP_MS);
 
     if (!point) {
@@ -451,6 +462,14 @@ function renderFrame(t) {
   );
 }
 
+function getEffectiveEndTime() {
+  if (!state.track) {
+    return null;
+  }
+
+  return state.effectiveEndTime ?? state.track.endTime;
+}
+
 function updateSeekUi() {
   if (!state.track || state.currentTime === null) {
     return;
@@ -460,6 +479,24 @@ function updateSeekUi() {
   ui.currentTimeLabel.textContent = formatClock(state.currentTime);
 }
 
+function applyEffectiveEndTimeToUi() {
+  if (!state.track) {
+    return;
+  }
+
+  const endTime = getEffectiveEndTime();
+
+  ui.seekRange.max = String(endTime - state.track.startTime);
+  ui.totalTimeLabel.textContent = formatClock(endTime);
+
+  if (state.currentTime !== null && state.currentTime > endTime) {
+    state.currentTime = endTime;
+  }
+
+  renderHourMarks(state.track);
+  updateSeekUi();
+}
+
 function renderHourMarks(track) {
   ui.seekHourMarks.innerHTML = "";
 
@@ -467,7 +504,8 @@ function renderHourMarks(track) {
     return;
   }
 
-  const { startTime, endTime } = track;
+  const { startTime } = track;
+  const endTime = getEffectiveEndTime() ?? track.endTime;
   const totalDuration = endTime - startTime;
 
   if (totalDuration <= 0) {
@@ -501,16 +539,18 @@ function renderHourMarks(track) {
   }
 }
 
-function renderLineEntryMark(track, filter) {
-  const entryTime = computeFirstLineEntryTime(track, filter);
+function renderLineEntryMark(track, operationWindows) {
+  const entryTime = computeFirstLineEntryTime(operationWindows);
 
-  if (entryTime === null) {
+  if (!track || entryTime === null) {
     ui.lineEntryMark.classList.add("hidden");
     delete ui.lineEntryMark.dataset.entryTime;
+    state.lastAutoJumpedEntryTime = null;
     return;
   }
 
-  const totalDuration = track.endTime - track.startTime;
+  const endTime = getEffectiveEndTime() ?? track.endTime;
+  const totalDuration = endTime - track.startTime;
   const percent = totalDuration > 0 ? ((entryTime - track.startTime) / totalDuration) * 100 : 0;
   const label = formatClock(entryTime);
 
@@ -519,6 +559,16 @@ function renderLineEntryMark(track, filter) {
   ui.lineEntryMark.setAttribute("aria-label", `Saltar para o momento em que o primeiro veículo entra na linha, às ${label}`);
   ui.lineEntryMark.dataset.entryTime = String(entryTime);
   ui.lineEntryMark.classList.remove("hidden");
+
+  // Salta sempre que o instante calculado mudar - nao depende do marcador
+  // estar "reaparecendo" na tela, pois editar um filtro valido diretamente
+  // para outro filtro valido (ex: linha:203 -> linha:870) nunca esconde o
+  // marcador no meio do caminho.
+  if (entryTime !== state.lastAutoJumpedEntryTime) {
+    state.lastAutoJumpedEntryTime = entryTime;
+    trackGaEvent("movement_auto_jump_line_entry");
+    jumpToTime(entryTime);
+  }
 }
 
 ui.lineEntryMark.addEventListener("click", () => {
@@ -540,7 +590,7 @@ function jumpToTime(targetTime) {
   const wasPlaying = state.playing;
   pause();
 
-  state.currentTime = Math.min(Math.max(targetTime, state.track.startTime), state.track.endTime);
+  state.currentTime = Math.min(Math.max(targetTime, state.track.startTime), getEffectiveEndTime());
   renderFrame(state.currentTime);
   updateSeekUi();
 
@@ -584,12 +634,13 @@ function tick(nowWallClock) {
   const speedMinutesPerSecond = Number(ui.speedSelect.value) || 1;
   const simulatedDeltaMs = deltaMs * speedMinutesPerSecond * 60;
 
-  state.currentTime = Math.min(state.currentTime + simulatedDeltaMs, state.track.endTime);
+  const effectiveEndTime = getEffectiveEndTime();
+  state.currentTime = Math.min(state.currentTime + simulatedDeltaMs, effectiveEndTime);
 
   renderFrame(state.currentTime);
   updateSeekUi();
 
-  if (state.currentTime >= state.track.endTime) {
+  if (state.currentTime >= effectiveEndTime) {
     pause();
     return;
   }
@@ -602,7 +653,7 @@ function play() {
     return;
   }
 
-  if (state.currentTime >= state.track.endTime) {
+  if (state.currentTime >= getEffectiveEndTime()) {
     state.currentTime = state.track.startTime;
   }
 
@@ -707,15 +758,90 @@ function scheduleLineRouteUpdate() {
   }, LINE_ROUTE_DEBOUNCE_MS);
 }
 
+/**
+ * Recalcula as janelas de operacao considerando os dados de fronteira do dia
+ * anterior/seguinte (virada da meia-noite). E assincrono (busca/sincroniza
+ * esses dados em segundo plano) e por isso e chamado com debounce a partir
+ * de scheduleOperationWindowsRefinement - a filtragem em si ja funciona
+ * (com uma versao mais simples, so com os dados do proprio dia) assim que
+ * applyFilter roda de forma sincrona.
+ */
+async function refineOperationWindows() {
+  const token = state.operationWindowsToken;
+  const track = state.track;
+  const filter = state.filterInfo;
+
+  if (!track || !filter || filter.field !== "linha") {
+    return;
+  }
+
+  const [previousDayLateFrames, nextDayEarlyFrames] = await Promise.all([
+    getPreviousDayLateFrames(track.dateKey),
+    getNextDayEarlyFrames(track.dateKey),
+  ]);
+
+  if (token !== state.operationWindowsToken) {
+    return;
+  }
+
+  const result = computeOperationWindows(track, filter, {
+    previousDayLateFrames,
+    nextDayEarlyFrames,
+    nextDayExtensionCutoff: getNextDayExtensionCutoff(track.dateKey),
+  });
+
+  state.operationWindows = result.windows;
+  state.extendedVehicleFrames = result.extendedFrames;
+  state.effectiveEndTime = result.effectiveEndTime;
+
+  applyEffectiveEndTimeToUi();
+  renderLineEntryMark(track, state.operationWindows);
+  renderFrame(state.currentTime);
+}
+
+let operationWindowsDebounceTimer = null;
+
+function scheduleOperationWindowsRefinement() {
+  if (operationWindowsDebounceTimer !== null) {
+    clearTimeout(operationWindowsDebounceTimer);
+    operationWindowsDebounceTimer = null;
+  }
+
+  // Invalida qualquer refinamento em andamento: se o filtro mudou enquanto
+  // os dados de fronteira ainda estavam sendo buscados, o resultado
+  // pendente nao deve mais ser aplicado.
+  state.operationWindowsToken += 1;
+
+  const filter = state.filterInfo;
+  if (!filter || filter.field !== "linha") {
+    return;
+  }
+
+  operationWindowsDebounceTimer = setTimeout(() => {
+    operationWindowsDebounceTimer = null;
+    refineOperationWindows();
+  }, LINE_ROUTE_DEBOUNCE_MS);
+}
+
 function applyFilter() {
   state.filterInfo = state.track ? parseVehicleFilter(ui.searchInput.value) : null;
   state.filteredCods = state.track ? computeFilteredCods(state.track, state.filterInfo) : null;
-  state.operationWindows = state.track ? computeOperationWindows(state.track, state.filterInfo) : null;
+
+  const result = state.track
+    ? computeOperationWindows(state.track, state.filterInfo)
+    : { windows: null, extendedFrames: new Map(), effectiveEndTime: null };
+
+  state.operationWindows = result.windows;
+  state.extendedVehicleFrames = result.extendedFrames;
+  state.effectiveEndTime = result.effectiveEndTime;
+
   recomputeVisibleCods();
   scheduleLineRouteUpdate();
-  renderLineEntryMark(state.track, state.filterInfo);
+  scheduleOperationWindowsRefinement();
+  renderLineEntryMark(state.track, state.operationWindows);
 
   if (state.track) {
+    applyEffectiveEndTimeToUi();
     renderFrame(state.currentTime);
   }
 }
@@ -727,6 +853,9 @@ async function loadDate(dateKey, options = {}) {
   clearMarkers();
   state.track = null;
   state.currentTime = null;
+  state.effectiveEndTime = null;
+  state.extendedVehicleFrames = new Map();
+  state.operationWindowsToken += 1;
   updateDataControlsAvailability();
   renderHourMarks(null);
   renderLineEntryMark(null, null);
@@ -798,7 +927,12 @@ async function loadDate(dateKey, options = {}) {
     updateDataControlsAvailability();
     state.filterInfo = parseVehicleFilter(ui.searchInput.value);
     state.filteredCods = computeFilteredCods(track, state.filterInfo);
-    state.operationWindows = computeOperationWindows(track, state.filterInfo);
+
+    const windowsResult = computeOperationWindows(track, state.filterInfo);
+    state.operationWindows = windowsResult.windows;
+    state.extendedVehicleFrames = windowsResult.extendedFrames;
+    state.effectiveEndTime = windowsResult.effectiveEndTime;
+
     recomputeVisibleCods();
     state.currentTime = track.startTime;
 
@@ -806,11 +940,12 @@ async function loadDate(dateKey, options = {}) {
     ui.seekRange.value = "0";
     ui.totalTimeLabel.textContent = formatClock(track.endTime);
     renderHourMarks(track);
-    renderLineEntryMark(track, state.filterInfo);
+    renderLineEntryMark(track, state.operationWindows);
 
     fitMapToTrack(track);
     renderFrame(state.currentTime);
     updateSeekUi();
+    scheduleOperationWindowsRefinement();
 
     const vehicleCount = Object.keys(track.vehicles).length;
     setStatus(`Trajetos prontos: ${vehicleCount} veículo(s), ${track.timeline.length} instantâneo(s) em ${formatDateLabel(dateKey)}.`);

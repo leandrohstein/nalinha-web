@@ -45,6 +45,22 @@ async function fetchAndCacheMinute(targetDate) {
 }
 
 /**
+ * Busca e armazena em cache (IndexedDB) os dados de veiculos entre duas
+ * datas/horarios especificos (inclusive), minuto a minuto. Sem callbacks de
+ * progresso/cancelamento - pensada para sincronizar silenciosamente, em
+ * background, pequenos intervalos (ex: a virada da meia-noite) sem exibir
+ * overlay de sincronizacao.
+ */
+export async function syncMinuteRange(startDate, endDate) {
+  const totalMinutes = Math.round((endDate.getTime() - startDate.getTime()) / 60000) + 1;
+
+  for (let minute = 0; minute < totalMinutes; minute += 1) {
+    const targetDate = new Date(startDate.getTime() + minute * 60000);
+    await fetchAndCacheMinute(targetDate);
+  }
+}
+
+/**
  * Busca e armazena em cache (IndexedDB) os dados de veiculos de uma data,
  * minuto a minuto, entre 00:00 e 23:59 (ou ate o minuto atual, se a data for
  * hoje). Nao possui nenhuma dependencia de UI - apenas obtem e valida dados -

@@ -50,16 +50,20 @@ export const cacheRepository = {
   },
 
   async getEntriesForDate(dateKey) {
+    return this.getEntriesInRange(`${dateKey} 00:00`, `${dateKey} 23:59`);
+  },
+
+  async getEntriesInRange(startKey, endKey) {
     return this.withDb(
       (db) =>
         new Promise((resolve, reject) => {
           const tx = db.transaction(CACHE_STORE_NAME, "readonly");
           const store = tx.objectStore(CACHE_STORE_NAME);
-          const range = IDBKeyRange.bound(`${dateKey} 00:00`, `${dateKey} 23:59`);
+          const range = IDBKeyRange.bound(startKey, endKey);
           const request = store.getAll(range);
 
           request.onsuccess = () => resolve(request.result || []);
-          request.onerror = () => reject(request.error || new Error("Falha ao ler cache do dia."));
+          request.onerror = () => reject(request.error || new Error("Falha ao ler cache no intervalo."));
         })
     );
   },

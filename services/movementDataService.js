@@ -2,8 +2,16 @@ import { cacheRepository } from "./cacheRepository.js";
 import { movementDataRepository } from "./movementDataRepository.js";
 import { getByCod } from "./lineDataService.js";
 import { getById as getVehicleTypeById } from "./vehicleTypeDataService.js";
+import { syncMinuteRange } from "./dataSyncService.js";
 
 export const MOVEMENT_MAX_GAP_MS = 6 * 60 * 1000;
+
+// Janela usada para identificar o turno de um veiculo que atravessa a
+// meia-noite: quanto do dia anterior (a partir de que horario) conta como
+// "ja em operacao" e ate que horario do dia seguinte se considera a
+// continuacao do mesmo turno.
+const PREVIOUS_DAY_WINDOW_START = { hour: 23, minute: 0 };
+const NEXT_DAY_WINDOW_END = { hour: 1, minute: 30 };
 
 const VALID_VEHICLE_PREFIX_REGEX = /^[A-Z]{2}[0-9]{3}$/;
 
@@ -16,6 +24,15 @@ export function getDateKey(date) {
   const month = pad2(date.getMonth() + 1);
   const day = pad2(date.getDate());
   return `${year}-${month}-${day}`;
+}
+
+function shiftDateKey(dateKey, deltaDays) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return getDateKey(new Date(year, month - 1, day + deltaDays));
+}
+
+function isTodayKey(dateKey) {
+  return dateKey === getDateKey(new Date());
 }
 
 function parseDateTimeKeyToEpoch(dateTimeKey) {
@@ -81,8 +98,14 @@ async function buildLabelMaps(codigolinhaSet, tipoVeicSet) {
   };
 }
 
-export async function buildMovementTrack(dateKey) {
-  const entries = await cacheRepository.getEntriesForDate(dateKey);
+/**
+ * Converte entradas cruas do cacheRepository (snapshots por minuto) em
+ * quadros por veiculo. Nao depende de um dateKey fixo - cada entrada usa a
+ * propria data embutida no seu dateTimeKey, permitindo reutilizar esta
+ * funcao tanto para o dia principal quanto para pequenas fatias de dias
+ * adjacentes (ex: virada da meia-noite).
+ */
+function parseEntriesIntoVehicleFrames(entries) {
   const sortedEntries = [...entries].sort((a, b) => a.dateTimeKey.localeCompare(b.dateTimeKey));
 
   const vehicleFrames = new Map();
@@ -92,6 +115,7 @@ export async function buildMovementTrack(dateKey) {
   const timelineSet = new Set();
 
   for (const entry of sortedEntries) {
+    const entryDateKey = entry.dateTimeKey.slice(0, 10);
     const items = extractVehicleItems(entry.data);
 
     for (const item of items) {
@@ -101,7 +125,7 @@ export async function buildMovementTrack(dateKey) {
         continue;
       }
 
-      const refreshTime = parseRefreshToEpoch(dateKey, item.REFRESH);
+      const refreshTime = parseRefreshToEpoch(entryDateKey, item.REFRESH);
 
       if (!vehicleFrames.has(cod)) {
         vehicleFrames.set(cod, new Map());
@@ -168,14 +192,23 @@ export async function buildMovementTrack(dateKey) {
     }
   }
 
-  const { lineLabels, vehicleTypeLabels } = await buildLabelMaps(codigolinhaSet, tipoVeicSet);
-
   const vehicles = {};
   for (const [cod, frameMap] of vehicleFrames) {
     vehicles[cod] = [...frameMap.values()].sort((a, b) => a.t - b.t);
   }
 
-  const timeline = [...timelineSet].sort((a, b) => a - b);
+  return {
+    vehicles,
+    codigolinhaSet,
+    tipoVeicSet,
+    timeline: [...timelineSet].sort((a, b) => a - b),
+  };
+}
+
+export async function buildMovementTrack(dateKey) {
+  const entries = await cacheRepository.getEntriesForDate(dateKey);
+  const { vehicles, codigolinhaSet, tipoVeicSet, timeline } = parseEntriesIntoVehicleFrames(entries);
+  const { lineLabels, vehicleTypeLabels } = await buildLabelMaps(codigolinhaSet, tipoVeicSet);
 
   const record = {
     dateKey,
@@ -190,6 +223,67 @@ export async function buildMovementTrack(dateKey) {
 
   await movementDataRepository.set(record);
   return record;
+}
+
+/**
+ * Quadros do(s) veiculo(s) no fim do dia anterior (23:00-23:59), usados para
+ * identificar se um turno que aparenta comecar no inicio do dia atual e na
+ * verdade a continuacao de um turno ja em andamento ontem. Sincroniza
+ * silenciosamente (sem overlay) essa pequena janela antes de ler o cache.
+ */
+export async function getPreviousDayLateFrames(dateKey) {
+  const previousDateKey = shiftDateKey(dateKey, -1);
+  const [year, month, day] = previousDateKey.split("-").map(Number);
+  const startDate = new Date(year, month - 1, day, PREVIOUS_DAY_WINDOW_START.hour, PREVIOUS_DAY_WINDOW_START.minute);
+  const endDate = new Date(year, month - 1, day, 23, 59);
+
+  await syncMinuteRange(startDate, endDate);
+
+  const entries = await cacheRepository.getEntriesInRange(
+    `${previousDateKey} ${pad2(PREVIOUS_DAY_WINDOW_START.hour)}:${pad2(PREVIOUS_DAY_WINDOW_START.minute)}`,
+    `${previousDateKey} 23:59`
+  );
+
+  return parseEntriesIntoVehicleFrames(entries).vehicles;
+}
+
+/**
+ * Quadros do(s) veiculo(s) no comeco do dia seguinte (00:00 ate o horario de
+ * corte definido em NEXT_DAY_WINDOW_END), usados para estender a exibicao de
+ * um turno que atravessa a meia-noite dentro da mesma tela do dia atual.
+ * Sincroniza silenciosamente essa pequena janela antes de ler o cache. Nao
+ * ha o que buscar quando dateKey e hoje, pois o dia seguinte ainda nao
+ * aconteceu.
+ */
+export async function getNextDayEarlyFrames(dateKey) {
+  if (isTodayKey(dateKey)) {
+    return {};
+  }
+
+  const nextDateKey = shiftDateKey(dateKey, 1);
+  const [year, month, day] = nextDateKey.split("-").map(Number);
+  const startDate = new Date(year, month - 1, day, 0, 0);
+  const endDate = new Date(year, month - 1, day, NEXT_DAY_WINDOW_END.hour, NEXT_DAY_WINDOW_END.minute);
+
+  await syncMinuteRange(startDate, endDate);
+
+  const entries = await cacheRepository.getEntriesInRange(
+    `${nextDateKey} 00:00`,
+    `${nextDateKey} ${pad2(NEXT_DAY_WINDOW_END.hour)}:${pad2(NEXT_DAY_WINDOW_END.minute)}`
+  );
+
+  return parseEntriesIntoVehicleFrames(entries).vehicles;
+}
+
+/**
+ * Instante (epoch ms) do horario de corte da extensao no dia seguinte a
+ * dateKey - usado para limitar ate onde um turno que atravessa a meia-noite
+ * e considerado parte da mesma janela de operacao do dia atual.
+ */
+export function getNextDayExtensionCutoff(dateKey) {
+  const nextDateKey = shiftDateKey(dateKey, 1);
+  const [year, month, day] = nextDateKey.split("-").map(Number);
+  return new Date(year, month - 1, day, NEXT_DAY_WINDOW_END.hour, NEXT_DAY_WINDOW_END.minute, 0, 0).getTime();
 }
 
 export async function getMovementTrack(dateKey, options = {}) {

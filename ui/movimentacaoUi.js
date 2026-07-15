@@ -89,6 +89,15 @@ export function parseVehicleFilter(rawInput) {
     return null;
   }
 
+  // Os codigos de linha sempre tem 3 caracteres (ex: "203", "022", "X36").
+  // Enquanto o usuario digita menos que isso, qualquer prefixo casaria com
+  // varias linhas diferentes ao mesmo tempo, deixando a filtragem instavel
+  // (marcadores/janelas mudando a cada tecla) - so ativa o filtro por linha
+  // quando o codigo estiver completo.
+  if (field === "linha" && value.length < 3) {
+    return null;
+  }
+
   return { field, value };
 }
 
@@ -113,66 +122,160 @@ export function computeFilteredCods(track, filter) {
   );
 }
 
+function isMatch(codigolinha, filterValue) {
+  return !isOutOfService(codigolinha) && normalizeText(codigolinha).startsWith(filterValue);
+}
+
+function isOther(codigolinha, filterValue) {
+  return !isOutOfService(codigolinha) && !normalizeText(codigolinha).startsWith(filterValue);
+}
+
+/**
+ * Divide os quadros (ja ordenados por tempo) de um veiculo em blocos
+ * delimitados por trechos em "outra linha" (nao REC, nao a linha filtrada).
+ * Retorna so os blocos que contem ao menos um quadro na linha filtrada, com
+ * o indice de inicio/fim (exclusivo) dentro do array, a tabela do primeiro
+ * quadro que deu match (usada para comparar com o dia anterior) e o
+ * instante desse primeiro quadro (o momento real em que o veiculo entra na
+ * linha, distinto do inicio do bloco que inclui o "fora de operacao" antes).
+ */
+function findMatchBlocks(frames, filterValue) {
+  const blocks = [];
+  let blockStartIdx = null;
+  let matchTabela = null;
+  let matchStart = null;
+
+  for (let i = 0; i <= frames.length; i += 1) {
+    const frame = frames[i];
+
+    if (frame && !isOther(frame.codigolinha, filterValue)) {
+      if (blockStartIdx === null) {
+        blockStartIdx = i;
+      }
+
+      if (matchTabela === null && isMatch(frame.codigolinha, filterValue)) {
+        matchTabela = frame.tabela;
+        matchStart = frame.t;
+      }
+
+      continue;
+    }
+
+    if (blockStartIdx !== null) {
+      if (matchTabela !== null) {
+        blocks.push({ startIdx: blockStartIdx, endIdx: i, tabela: matchTabela, matchStart });
+      }
+
+      blockStartIdx = null;
+      matchTabela = null;
+      matchStart = null;
+    }
+  }
+
+  return blocks;
+}
+
 /**
  * Para o filtro por linha, calcula por veiculo as janelas de tempo em que
- * ele deve ser exibido. Os quadros de cada veiculo sao divididos em blocos
- * delimitados por trechos em "outra linha" (nao REC, nao a linha filtrada);
- * cada bloco que contem ao menos um quadro na linha filtrada vira uma janela
+ * ele deve ser exibido, a partir dos blocos encontrados por findMatchBlocks
  * (do inicio do bloco - ou seja, incluindo o "fora de operacao" que o
  * antecede - ate o proximo trecho em outra linha, ou o fim do dia). Um
  * veiculo pode ter varias janelas nao contiguas ao longo do dia: se ele
  * voltar a operar a mesma linha depois de rodar em outra linha, um novo
- * ciclo REC -> linha -> REC e reconhecido como uma nova janela. Retorna
- * null se o filtro nao for por linha.
+ * ciclo REC -> linha -> REC e reconhecido como uma nova janela.
+ *
+ * edgeFrames (opcional) permite ajustar turnos que atravessam a
+ * meia-noite:
+ * - previousDayLateFrames: quadros do fim do dia anterior (23:00-23:59). Se
+ *   a primeira janela do veiculo comeca no 1o quadro do dia (sem "outra
+ *   linha" antes dela hoje) e o veiculo ja estava na mesma linha/tabela
+ *   nesse trecho de ontem, a janela e descartada (ja foi mostrada ontem).
+ * - nextDayEarlyFrames + nextDayExtensionCutoff: quadros do inicio do dia
+ *   seguinte (00:00 ate o horario de corte). Se a ultima janela do veiculo
+ *   ainda esta aberta (sem "outra linha" encontrada ate o fim dos dados de
+ *   hoje), continua a analise nesses quadros para achar o fechamento real
+ *   ou, na ausencia dele, limita ate o horario de corte - e os quadros
+ *   usados sao devolvidos em extendedFrames para estender a exibicao.
+ *
+ * Retorna { windows: null, extendedFrames: new Map(), effectiveEndTime }
+ * quando o filtro nao e por linha.
  */
-export function computeOperationWindows(track, filter) {
+export function computeOperationWindows(track, filter, edgeFrames = {}) {
   if (!filter || filter.field !== "linha") {
-    return null;
+    return { windows: null, extendedFrames: new Map(), effectiveEndTime: track ? track.endTime : null };
   }
 
+  const { previousDayLateFrames, nextDayEarlyFrames, nextDayExtensionCutoff } = edgeFrames;
   const windows = new Map();
+  const extendedFrames = new Map();
+  let effectiveEndTime = track.endTime;
 
   for (const [cod, frames] of Object.entries(track.vehicles)) {
-    const vehicleWindows = [];
-    let blockStartIdx = null;
-    let blockHasMatch = false;
+    if (frames.length === 0) {
+      continue;
+    }
 
-    for (let i = 0; i <= frames.length; i += 1) {
-      const frame = frames[i];
-      const isOther =
-        frame && !isOutOfService(frame.codigolinha) && !normalizeText(frame.codigolinha).startsWith(filter.value);
+    const blocks = findMatchBlocks(frames, filter.value);
+    if (blocks.length === 0) {
+      continue;
+    }
 
-      if (frame && !isOther) {
-        if (blockStartIdx === null) {
-          blockStartIdx = i;
+    const vehicleWindows = blocks.map((block) => ({
+      start: frames[block.startIdx].t,
+      end: block.endIdx < frames.length ? frames[block.endIdx].t : Infinity,
+      tabela: block.tabela,
+      startIdx: block.startIdx,
+      matchStart: block.matchStart,
+    }));
+
+    const firstWindow = vehicleWindows[0];
+    if (firstWindow.startIdx === 0 && previousDayLateFrames?.[cod]) {
+      const alreadyShownYesterday = previousDayLateFrames[cod].some(
+        (frame) => isMatch(frame.codigolinha, filter.value) && frame.tabela === firstWindow.tabela
+      );
+
+      if (alreadyShownYesterday) {
+        vehicleWindows.shift();
+      }
+    }
+
+    const lastWindow = vehicleWindows[vehicleWindows.length - 1];
+    if (lastWindow && lastWindow.end === Infinity && nextDayEarlyFrames?.[cod]?.length > 0) {
+      const cutoff = nextDayExtensionCutoff ?? Infinity;
+      let closingTime = null;
+
+      for (const frame of nextDayEarlyFrames[cod]) {
+        if (frame.t > cutoff) {
+          break;
         }
 
-        if (!isOutOfService(frame.codigolinha)) {
-          blockHasMatch = true;
+        if (isOther(frame.codigolinha, filter.value)) {
+          closingTime = frame.t;
+          break;
         }
-
-        continue;
       }
 
-      if (blockStartIdx !== null) {
-        if (blockHasMatch) {
-          vehicleWindows.push({
-            start: frames[blockStartIdx].t,
-            end: frame ? frame.t : Infinity,
-          });
-        }
+      lastWindow.end = closingTime ?? cutoff;
 
-        blockStartIdx = null;
-        blockHasMatch = false;
+      const mergedFrames = [...frames, ...nextDayEarlyFrames[cod].filter((frame) => frame.t <= lastWindow.end)].sort(
+        (a, b) => a.t - b.t
+      );
+      extendedFrames.set(cod, mergedFrames);
+
+      if (lastWindow.end > effectiveEndTime) {
+        effectiveEndTime = lastWindow.end;
       }
     }
 
     if (vehicleWindows.length > 0) {
-      windows.set(cod, vehicleWindows);
+      windows.set(
+        cod,
+        vehicleWindows.map(({ start, end, matchStart }) => ({ start, end, matchStart }))
+      );
     }
   }
 
-  return windows;
+  return { windows, extendedFrames, effectiveEndTime };
 }
 
 export function matchesCurrentFilter(filter, point, cod, operationWindows) {
@@ -190,31 +293,28 @@ export function matchesCurrentFilter(filter, point, cod, operationWindows) {
 
 /**
  * Primeiro instante do dia em que algum veiculo deixa de estar "fora de
- * operacao" (REC) e passa a mostrar a linha filtrada. Retorna null se o
- * filtro nao for por linha ou se nenhum veiculo entrar na linha.
+ * operacao" (REC) e passa a mostrar a linha filtrada, considerando apenas as
+ * janelas de operacao validas (ja com os ajustes de virada de meia-noite
+ * aplicados por computeOperationWindows - ex: uma janela que comecava as
+ * 00:00 mas que na verdade e continuacao do turno de ontem e descartada, e
+ * portanto nao conta aqui). Retorna null se nao houver nenhuma janela.
  */
-export function computeFirstLineEntryTime(track, filter) {
-  if (!track || !filter || filter.field !== "linha") {
+export function computeFirstLineEntryTime(operationWindows) {
+  if (!operationWindows) {
     return null;
   }
 
   let earliest = null;
 
-  for (const frames of Object.values(track.vehicles)) {
-    for (const frame of frames) {
-      if (isOutOfService(frame.codigolinha)) {
+  for (const windows of operationWindows.values()) {
+    for (const window of windows) {
+      if (window.matchStart == null) {
         continue;
       }
 
-      if (!normalizeText(frame.codigolinha).startsWith(filter.value)) {
-        continue;
+      if (earliest === null || window.matchStart < earliest) {
+        earliest = window.matchStart;
       }
-
-      if (earliest === null || frame.t < earliest) {
-        earliest = frame.t;
-      }
-
-      break;
     }
   }
 
