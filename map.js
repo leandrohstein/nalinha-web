@@ -1,8 +1,10 @@
 import { getMovementTrack, getDateKey, MOVEMENT_MAX_GAP_MS } from "./services/movementDataService.js";
 import { movementDataRepository } from "./services/movementDataRepository.js";
-import { getLineData } from "./services/lineDataService.js";
+import { getByCod, getLineData } from "./services/lineDataService.js";
 import { getVehicleTypeData } from "./services/vehicleTypeDataService.js";
 import { syncDayToCache } from "./services/dataSyncService.js";
+import { getLineGeoJson } from "./services/lineGeoJsonService.js";
+import { getLineRouteColor } from "./services/lineColorService.js";
 import {
   buildTooltipHtml,
   computeFilteredCods,
@@ -19,11 +21,31 @@ import {
 const DEFAULT_CENTER = [-25.4284, -49.2733];
 const DEFAULT_ZOOM = 12;
 const KEYBOARD_SEEK_STEP_MS = 60 * 1000;
+const LINE_ROUTE_DEBOUNCE_MS = 400;
+const LINE_ROUTE_STYLE = { color: "#7c3aed", weight: 4, opacity: 0.7 };
+const LINE_ROUTE_POINT_MIN_RADIUS = 3;
+const LINE_ROUTE_POINT_MAX_RADIUS = 8.33;
+
+function getLineRoutePointRadius(zoom) {
+  const clampedZoom = Math.min(Math.max(zoom, MARKER_SIZE_MIN_ZOOM), MARKER_SIZE_MAX_ZOOM);
+  const ratio = (clampedZoom - MARKER_SIZE_MIN_ZOOM) / (MARKER_SIZE_MAX_ZOOM - MARKER_SIZE_MIN_ZOOM);
+  return LINE_ROUTE_POINT_MIN_RADIUS + (LINE_ROUTE_POINT_MAX_RADIUS - LINE_ROUTE_POINT_MIN_RADIUS) * ratio;
+}
+
+function getLineRoutePointStyle(zoom) {
+  return {
+    radius: getLineRoutePointRadius(zoom),
+    color: "#000000",
+    weight: 1,
+    fillColor: "#9ca3af",
+    fillOpacity: 1,
+  };
+}
 
 const MARKER_SIZE_MIN_ZOOM = 11;
-const MARKER_SIZE_MAX_ZOOM = 17;
+const MARKER_SIZE_MAX_ZOOM = 19;
 const MARKER_SIZE_MIN = 6;
-const MARKER_SIZE_MAX = 16;
+const MARKER_SIZE_MAX = 19;
 
 function getMarkerSizeForZoom(zoom) {
   const clampedZoom = Math.min(Math.max(zoom, MARKER_SIZE_MIN_ZOOM), MARKER_SIZE_MAX_ZOOM);
@@ -81,6 +103,7 @@ const state = {
   syncToken: 0,
   hideOutOfService: false,
   markerSize: getMarkerSizeForZoom(DEFAULT_ZOOM),
+  lineRouteToken: 0,
 };
 
 function setStatus(message) {
@@ -124,21 +147,43 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   maxZoom: 19,
 }).addTo(map);
+const routeLayer = L.layerGroup().addTo(map);
 const markerLayer = L.layerGroup().addTo(map);
 
 map.on("zoomend", () => {
-  const nextSize = getMarkerSizeForZoom(map.getZoom());
-  if (nextSize === state.markerSize) {
-    return;
+  const zoom = map.getZoom();
+  const nextSize = getMarkerSizeForZoom(zoom);
+
+  if (nextSize !== state.markerSize) {
+    state.markerSize = nextSize;
+
+    if (state.track && state.currentTime !== null) {
+      clearMarkers();
+      renderFrame(state.currentTime);
+    }
   }
 
-  state.markerSize = nextSize;
-
-  if (state.track && state.currentTime !== null) {
-    clearMarkers();
-    renderFrame(state.currentTime);
-  }
+  updateRouteCircleRadii(zoom);
 });
+
+function updateRouteCircleRadii(zoom) {
+  const nextRadius = getLineRoutePointRadius(zoom);
+
+  // routeLayer contem o grupo criado pelo L.geoJSON (nao os circleMarkers
+  // diretamente), entao e preciso descer mais um nivel para alcancar os
+  // pontos e atualizar o raio deles ao trocar de zoom.
+  routeLayer.eachLayer((layer) => {
+    if (typeof layer.setRadius === "function") {
+      layer.setRadius(nextRadius);
+    } else if (typeof layer.eachLayer === "function") {
+      layer.eachLayer((subLayer) => {
+        if (typeof subLayer.setRadius === "function") {
+          subLayer.setRadius(nextRadius);
+        }
+      });
+    }
+  });
+}
 
 const PIP_SUPPORTED = "documentPictureInPicture" in window;
 let pipWindow = null;
@@ -560,10 +605,78 @@ function fitMapToTrack(track) {
   map.fitBounds(L.latLngBounds(points), { padding: [24, 24] });
 }
 
+function clearLineRoute() {
+  routeLayer.clearLayers();
+}
+
+async function updateLineRoute() {
+  const requestToken = state.lineRouteToken;
+  const filter = state.filterInfo;
+
+  try {
+    const [geoJson, lineRecord] = await Promise.all([getLineGeoJson(filter.value), getByCod(filter.value)]);
+
+    if (requestToken !== state.lineRouteToken) {
+      return;
+    }
+
+    clearLineRoute();
+
+    if (geoJson) {
+      const routeColor = getLineRouteColor(lineRecord);
+
+      L.geoJSON(geoJson, {
+        // Leaflet aplica "style" tambem sobre os layers criados por
+        // pointToLayer (circleMarker e um Path), entao precisa diferenciar
+        // por tipo de geometria para nao sobrescrever o estilo dos pontos
+        // com o estilo da linha.
+        style: (feature) =>
+          feature?.geometry?.type === "Point" || feature?.geometry?.type === "MultiPoint"
+            ? getLineRoutePointStyle(map.getZoom())
+            : { ...LINE_ROUTE_STYLE, color: routeColor },
+        pointToLayer: (_feature, latlng) => L.circleMarker(latlng, getLineRoutePointStyle(map.getZoom())),
+      }).addTo(routeLayer);
+    }
+  } catch (error) {
+    if (requestToken !== state.lineRouteToken) {
+      return;
+    }
+
+    clearLineRoute();
+    console.error("Falha ao carregar trajeto da linha:", error);
+  }
+}
+
+let lineRouteDebounceTimer = null;
+
+function scheduleLineRouteUpdate() {
+  if (lineRouteDebounceTimer !== null) {
+    clearTimeout(lineRouteDebounceTimer);
+    lineRouteDebounceTimer = null;
+  }
+
+  const filter = state.filterInfo;
+
+  // Invalida qualquer busca de trajeto em andamento: se o filtro mudou (ou
+  // deixou de ser por linha), a resposta pendente nao deve mais ser aplicada.
+  state.lineRouteToken += 1;
+
+  if (!filter || filter.field !== "linha") {
+    clearLineRoute();
+    return;
+  }
+
+  lineRouteDebounceTimer = setTimeout(() => {
+    lineRouteDebounceTimer = null;
+    updateLineRoute();
+  }, LINE_ROUTE_DEBOUNCE_MS);
+}
+
 function applyFilter() {
   state.filterInfo = state.track ? parseVehicleFilter(ui.searchInput.value) : null;
   state.filteredCods = state.track ? computeFilteredCods(state.track, state.filterInfo) : null;
   recomputeVisibleCods();
+  scheduleLineRouteUpdate();
 
   if (state.track) {
     renderFrame(state.currentTime);
