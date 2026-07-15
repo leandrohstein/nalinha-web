@@ -68,6 +68,75 @@ function toNumber(value) {
   return Number.isFinite(num) ? num : null;
 }
 
+const EARTH_RADIUS_M = 6371000;
+
+function toRadians(degrees) {
+  return (degrees * Math.PI) / 180;
+}
+
+function toDegrees(radians) {
+  return (radians * 180) / Math.PI;
+}
+
+function round(value, decimals) {
+  const factor = 10 ** decimals;
+  return Math.round(value * factor) / factor;
+}
+
+function haversineDistanceM(lat1, lon1, lat2, lon2) {
+  const dLat = toRadians(lat2 - lat1);
+  const dLon = toRadians(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 + Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(dLon / 2) ** 2;
+
+  return EARTH_RADIUS_M * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function computeBearingDegrees(lat1, lon1, lat2, lon2) {
+  const phi1 = toRadians(lat1);
+  const phi2 = toRadians(lat2);
+  const deltaLambda = toRadians(lon2 - lon1);
+
+  const y = Math.sin(deltaLambda) * Math.cos(phi2);
+  const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(deltaLambda);
+
+  return (toDegrees(Math.atan2(y, x)) + 360) % 360;
+}
+
+/**
+ * Anota cada quadro (ja ordenado por tempo) de um veiculo com metricas de
+ * deslocamento em relacao ao quadro anterior: distancia do segmento,
+ * distancia acumulada no array, velocidade media do segmento e o bearing
+ * (direcao) do deslocamento. O primeiro quadro nao tem ponto anterior, entao
+ * fica com distancia/velocidade zeradas e bearing nulo.
+ */
+function annotateMovementMetrics(frames) {
+  let accumulatedM = 0;
+
+  frames.forEach((frame, index) => {
+    if (index === 0) {
+      frame.distanciaSegmentoM = 0;
+      frame.distanciaAcumuladaM = 0;
+      frame.velocidadeMediaKmh = 0;
+      frame.bearingGraus = null;
+      return;
+    }
+
+    const previous = frames[index - 1];
+    const segmentM = haversineDistanceM(previous.lat, previous.lon, frame.lat, frame.lon);
+    accumulatedM += segmentM;
+
+    const hoursDiff = (frame.t - previous.t) / 3600000;
+    const speedKmh = hoursDiff > 0 ? segmentM / 1000 / hoursDiff : 0;
+    const bearingDegrees = computeBearingDegrees(previous.lat, previous.lon, frame.lat, frame.lon);
+
+    frame.distanciaSegmentoM = round(segmentM, 1);
+    frame.distanciaAcumuladaM = round(accumulatedM, 1);
+    frame.velocidadeMediaKmh = round(speedKmh, 1);
+    frame.bearingGraus = round(bearingDegrees, 1);
+  });
+}
+
 function extractVehicleItems(rawData) {
   const items = rawData !== null && typeof rawData === "object" ? Object.values(rawData) : [rawData];
   return items.filter((item) => item !== null && typeof item === "object");
@@ -194,7 +263,9 @@ function parseEntriesIntoVehicleFrames(entries) {
 
   const vehicles = {};
   for (const [cod, frameMap] of vehicleFrames) {
-    vehicles[cod] = [...frameMap.values()].sort((a, b) => a.t - b.t);
+    const frames = [...frameMap.values()].sort((a, b) => a.t - b.t);
+    annotateMovementMetrics(frames);
+    vehicles[cod] = frames;
   }
 
   return {
