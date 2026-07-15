@@ -318,15 +318,76 @@ body {
   text-align: center;
 }
 
-#seekRange {
+.seek-wrapper {
+  position: relative;
   flex: 1;
   min-width: 160px;
+  display: flex;
+  align-items: center;
+}
+
+#seekRange {
+  width: 100%;
   accent-color: #2563eb;
 }
 
 #seekRange:disabled {
   accent-color: #94a3b8;
   cursor: not-allowed;
+}
+
+.seek-hour-marks {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 14px;
+  pointer-events: none;
+}
+
+.seek-hour-mark {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  border: none;
+  background: none;
+  margin: 0;
+  padding: 6px 3px 0;
+  font-size: 9px;
+  line-height: 1;
+  color: #64748b;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.seek-hour-mark::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  height: 5px;
+  background: #94a3b8;
+}
+
+.seek-hour-mark:hover,
+.seek-hour-mark:focus-visible {
+  color: #1d4ed8;
+}
+
+.seek-hour-mark:hover::before,
+.seek-hour-mark:focus-visible::before {
+  background: #2563eb;
+}
+
+.seek-hour-mark:disabled {
+  cursor: not-allowed;
+  color: #cbd5e1;
+}
+
+.seek-hour-mark:disabled::before {
+  background: #cbd5e1;
 }
 
 #speedSelect {
@@ -405,7 +466,7 @@ body {
     gap: 8px;
   }
 
-  #seekRange {
+  .seek-wrapper {
     order: 5;
     width: 100%;
     flex-basis: 100%;

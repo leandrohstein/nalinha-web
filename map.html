@@ -47,7 +47,10 @@
           <button id="playPauseBtn" type="button" title="Play/Pause" aria-label="Play/Pause">▶</button>
         </div>
         <span id="currentTimeLabel" class="time-label">--:--:--</span>
-        <input id="seekRange" type="range" min="0" max="0" value="0" step="1000" aria-label="Progresso" />
+        <div class="seek-wrapper">
+          <input id="seekRange" type="range" min="0" max="0" value="0" step="1000" aria-label="Progresso" />
+          <div id="seekHourMarks" class="seek-hour-marks" aria-hidden="true"></div>
+        </div>
         <span id="totalTimeLabel" class="time-label">--:--:--</span>
         <select id="speedSelect" aria-label="Velocidade">
           <option value="1">1 min/s</option>

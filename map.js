@@ -38,6 +38,7 @@ const ui = {
   currentTimeLabel: document.querySelector("#currentTimeLabel"),
   totalTimeLabel: document.querySelector("#totalTimeLabel"),
   seekRange: document.querySelector("#seekRange"),
+  seekHourMarks: document.querySelector("#seekHourMarks"),
   speedSelect: document.querySelector("#speedSelect"),
   syncOverlay: document.querySelector("#syncOverlay"),
   syncOverlayMessage: document.querySelector("#syncOverlayMessage"),
@@ -246,6 +247,64 @@ function updateSeekUi() {
   ui.currentTimeLabel.textContent = formatClock(state.currentTime);
 }
 
+function renderHourMarks(track) {
+  ui.seekHourMarks.innerHTML = "";
+
+  if (!track) {
+    return;
+  }
+
+  const { startTime, endTime } = track;
+  const totalDuration = endTime - startTime;
+
+  if (totalDuration <= 0) {
+    return;
+  }
+
+  const firstHour = new Date(startTime);
+  firstHour.setMinutes(0, 0, 0);
+  if (firstHour.getTime() < startTime) {
+    firstHour.setHours(firstHour.getHours() + 1);
+  }
+
+  for (let hourTime = firstHour.getTime(); hourTime <= endTime; hourTime += 60 * 60 * 1000) {
+    const percent = ((hourTime - startTime) / totalDuration) * 100;
+    const hourLabel = String(new Date(hourTime).getHours()).padStart(2, "0");
+
+    const mark = document.createElement("button");
+    mark.type = "button";
+    mark.className = "seek-hour-mark";
+    mark.style.left = `${percent}%`;
+    mark.title = `Saltar para ${hourLabel}:00`;
+    mark.setAttribute("aria-label", `Saltar para ${hourLabel}:00`);
+    mark.textContent = hourLabel;
+
+    mark.addEventListener("click", () => {
+      trackGaEvent("movement_jump_hour", { hour: hourLabel });
+      jumpToTime(hourTime);
+    });
+
+    ui.seekHourMarks.appendChild(mark);
+  }
+}
+
+function jumpToTime(targetTime) {
+  if (!state.track) {
+    return;
+  }
+
+  const wasPlaying = state.playing;
+  pause();
+
+  state.currentTime = Math.min(Math.max(targetTime, state.track.startTime), state.track.endTime);
+  renderFrame(state.currentTime);
+  updateSeekUi();
+
+  if (wasPlaying) {
+    play();
+  }
+}
+
 function updatePlayPauseUi() {
   ui.playPauseBtn.textContent = state.playing ? "⏸" : "▶";
 }
@@ -348,6 +407,7 @@ async function loadDate(dateKey, options = {}) {
   state.track = null;
   state.currentTime = null;
   updateDataControlsAvailability();
+  renderHourMarks(null);
 
   const syncToken = ++state.syncToken;
   const isCancelled = () => state.syncToken !== syncToken;
@@ -401,6 +461,7 @@ async function loadDate(dateKey, options = {}) {
     ui.seekRange.max = String(track.endTime - track.startTime);
     ui.seekRange.value = "0";
     ui.totalTimeLabel.textContent = formatClock(track.endTime);
+    renderHourMarks(track);
 
     fitMapToTrack(track);
     renderFrame(state.currentTime);
