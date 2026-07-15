@@ -71,7 +71,7 @@ export function isOutOfService(codigolinha) {
   return String(codigolinha ?? "").trim().toUpperCase() === "REC";
 }
 
-export function computeFilteredCods(track, rawInput) {
+export function parseVehicleFilter(rawInput) {
   const trimmed = rawInput.trim();
   if (!trimmed) {
     return null;
@@ -82,28 +82,43 @@ export function computeFilteredCods(track, rawInput) {
     return null;
   }
 
-  const fieldAlias = trimmed.slice(0, colonIndex).trim().toLowerCase();
-  const fieldValue = normalizeText(trimmed.slice(colonIndex + 1));
+  const field = trimmed.slice(0, colonIndex).trim().toLowerCase();
+  const value = normalizeText(trimmed.slice(colonIndex + 1));
 
-  if (!fieldValue) {
+  if (!value || (field !== "linha" && field !== "prefixo")) {
+    return null;
+  }
+
+  return { field, value };
+}
+
+export function computeFilteredCods(track, filter) {
+  if (!filter) {
     return null;
   }
 
   const allCods = Object.keys(track.vehicles);
 
-  if (fieldAlias === "prefixo") {
-    return new Set(allCods.filter((cod) => normalizeText(cod).startsWith(fieldValue)));
+  if (filter.field === "prefixo") {
+    return new Set(allCods.filter((cod) => normalizeText(cod).startsWith(filter.value)));
   }
 
-  if (fieldAlias === "linha") {
-    return new Set(
-      allCods.filter((cod) =>
-        track.vehicles[cod].some((frame) => normalizeText(frame.codigolinha).startsWith(fieldValue))
-      )
-    );
+  // "linha": candidatos sao os veiculos que passam pela linha em algum
+  // momento do dia; a exibicao efetiva de cada quadro e decidida em tempo
+  // real por matchesCurrentFilter, pois um veiculo pode trocar de linha.
+  return new Set(
+    allCods.filter((cod) =>
+      track.vehicles[cod].some((frame) => normalizeText(frame.codigolinha).startsWith(filter.value))
+    )
+  );
+}
+
+export function matchesCurrentFilter(filter, point) {
+  if (!filter || filter.field !== "linha") {
+    return true;
   }
 
-  return null;
+  return isOutOfService(point.codigolinha) || normalizeText(point.codigolinha).startsWith(filter.value);
 }
 
 export function buildTooltipHtml(cod, point, track) {

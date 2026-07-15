@@ -10,6 +10,8 @@ import {
   getInterpolatedPoint,
   getMarkerColor,
   isOutOfService,
+  matchesCurrentFilter,
+  parseVehicleFilter,
   toDateInputValue,
 } from "./ui/movimentacaoUi.js";
 
@@ -55,6 +57,7 @@ const ui = {
 
 const state = {
   track: null,
+  filterInfo: null,
   filteredCods: null,
   visibleCods: [],
   playing: false,
@@ -323,6 +326,10 @@ function renderFrame(t) {
       continue;
     }
 
+    if (!matchesCurrentFilter(state.filterInfo, point)) {
+      continue;
+    }
+
     const outOfService = isOutOfService(point.codigolinha);
 
     if (outOfService && state.hideOutOfService) {
@@ -527,7 +534,8 @@ function fitMapToTrack(track) {
 }
 
 function applyFilter() {
-  state.filteredCods = state.track ? computeFilteredCods(state.track, ui.searchInput.value) : null;
+  state.filterInfo = state.track ? parseVehicleFilter(ui.searchInput.value) : null;
+  state.filteredCods = state.track ? computeFilteredCods(state.track, state.filterInfo) : null;
   recomputeVisibleCods();
 
   if (state.track) {
@@ -590,7 +598,8 @@ async function loadDate(dateKey, options = {}) {
 
     state.track = track;
     updateDataControlsAvailability();
-    state.filteredCods = computeFilteredCods(track, ui.searchInput.value);
+    state.filterInfo = parseVehicleFilter(ui.searchInput.value);
+    state.filteredCods = computeFilteredCods(track, state.filterInfo);
     recomputeVisibleCods();
     state.currentTime = track.startTime;
 
