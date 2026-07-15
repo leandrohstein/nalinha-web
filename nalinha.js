@@ -1,5 +1,5 @@
-import { cacheRepository } from "./services/cacheRepository.js";
-import { buildDataUrl, buildDateTimeKey, getVehicleData } from "./services/vehicleDataService.js";
+import { getVehicleData } from "./services/vehicleDataService.js";
+import { syncDayToCache } from "./services/dataSyncService.js";
 import { getByCod, getLineData } from "./services/lineDataService.js";
 import { getById as getVehicleTypeById, getVehicleTypeData } from "./services/vehicleTypeDataService.js";
 import {
@@ -23,6 +23,7 @@ const ui = {
   resultOutput: document.querySelector("#resultOutput"),
   loadButton: document.querySelector("#loadDataBtn"),
   loadHistoricalBtn: document.querySelector("#loadHistoricalBtn"),
+  viewMovementLink: document.querySelector("#viewMovementLink"),
   freshnessDot: document.querySelector("#freshnessDot"),
   pageSizeSelect: document.querySelector("#pageSizeSelect"),
   prevPageBtn: document.querySelector("#prevPageBtn"),
@@ -199,11 +200,7 @@ function startPreloadAutoHide() {
 const preloadState = {
   running: false,
   loopPromise: null,
-  mode: "current",
-  nextTargetDate: null,
-  dayStartDate: null,
   activeDateKey: "",
-  missingUrls404: new Set(),
 };
 
 function getDateKey(date) {
@@ -211,68 +208,6 @@ function getDateKey(date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-function startOfDay(date) {
-  const day = new Date(date);
-  day.setHours(0, 0, 0, 0);
-  return day;
-}
-
-function previousMinute(date) {
-  return new Date(date.getTime() - 60 * 1000);
-}
-
-function endOfDay(date) {
-  const day = new Date(date);
-  day.setHours(23, 59, 0, 0);
-  return day;
-}
-
-function resetPreloadCursor(referenceDate = new Date(), mode = "current") {
-  const dayStart = startOfDay(referenceDate);
-  const target = mode === "full-day"
-    ? endOfDay(referenceDate)
-    : new Date(referenceDate);
-
-  if (mode !== "full-day") {
-    target.setSeconds(0, 0);
-  }
-
-  preloadState.mode = mode;
-  preloadState.nextTargetDate = target;
-  preloadState.activeDateKey = getDateKey(target);
-  preloadState.dayStartDate = dayStart;
-  preloadState.missingUrls404.clear();
-}
-
-async function preloadOneMinute(targetDate) {
-  const url = buildDataUrl(targetDate);
-  const dateTimeKey = buildDateTimeKey(targetDate);
-
-  if (preloadState.missingUrls404.has(url)) {
-    return { status: "skip-404", url };
-  }
-
-  const cached = await cacheRepository.get(dateTimeKey);
-  if (cached !== null) {
-    return { status: "cache", url };
-  }
-
-  const response = await fetch(url, { method: "GET" });
-
-  if (response.status === 404) {
-    preloadState.missingUrls404.add(url);
-    return { status: "missing", url };
-  }
-
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status} - ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  await cacheRepository.set(dateTimeKey, data, url);
-  return { status: "network", url };
 }
 
 function formatTooltipClock(date = new Date()) {
@@ -305,66 +240,39 @@ function setPreloadTooltip(message, tone = "") {
   startPreloadAutoHide();
 }
 
-async function runPreloadLoop() {
-  while (preloadState.running) {
-    if (preloadState.mode === "current") {
-      const now = new Date();
-      const currentDateKey = getDateKey(now);
+async function runPreloadCycle(dateKey) {
+  try {
+    const result = await syncDayToCache(dateKey, {
+      onStep: ({ targetDate, status }) => {
+        const targetLabel = formatTargetLabel(targetDate);
 
-      if (!preloadState.nextTargetDate || preloadState.activeDateKey !== currentDateKey) {
-        resetPreloadCursor(now, "current");
-      }
-    }
+        if (status === "network") {
+          setPreloadTooltip(`Pre-cache OK (rede) para ${targetLabel}`, "success");
+        } else if (status === "cache") {
+          setPreloadTooltip(`Pre-cache OK (cache) para ${targetLabel}`, "success");
+        } else if (status === "missing") {
+          setPreloadTooltip(`Pre-cache: sem dados (404) para ${targetLabel}`);
+        } else {
+          setPreloadTooltip(`Pre-cache falhou as ${formatTooltipClock()} para ${targetLabel}`, "error");
+        }
+      },
+      isCancelled: () => !preloadState.running,
+    });
 
-    const dayStart = preloadState.dayStartDate || startOfDay(new Date());
-    const targetDate = new Date(preloadState.nextTargetDate.getTime());
-
-    if (targetDate < dayStart) {
-      const finalLabel = preloadState.mode === "full-day"
-        ? `Pre-cache concluido para ${dayStart.toLocaleDateString("pt-BR")} (00:00-23:59).`
-        : "Pre-cache concluido ate 00:00 da data atual.";
-
-      setPreloadTooltip(finalLabel, "success");
-      preloadState.running = false;
-      break;
-    }
-
-    setPreloadTooltip(`Pre-cache: verificando ${targetDate.toLocaleString("pt-BR")}`);
-
-    try {
-      const result = await preloadOneMinute(targetDate);
-      const targetLabel = formatTargetLabel(targetDate);
-
-      if (result.status === "network") {
-        setPreloadTooltip(`Pre-cache OK (rede) para ${targetLabel}`, "success");
-      } else if (result.status === "cache") {
-        setPreloadTooltip(`Pre-cache OK (cache) para ${targetLabel}`, "success");
-      } else if (result.status === "missing") {
-        setPreloadTooltip(`Pre-cache: sem dados (404) para ${targetLabel}`);
-      } else {
-        setPreloadTooltip(`Pre-cache: 404 previamente conhecido para ${targetLabel}`);
-      }
-
-      preloadState.nextTargetDate = previousMinute(targetDate);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+    if (!result.cancelled) {
       setPreloadTooltip(
-        `Pre-cache falhou as ${formatTooltipClock()}: ${message}`,
-        "error"
+        `Pre-cache concluido para ${result.rangeEnd.toLocaleDateString("pt-BR")} (00:00-${formatTooltipClock(result.rangeEnd)}).`,
+        "success"
       );
-      preloadState.nextTargetDate = previousMinute(targetDate);
+      preloadState.running = false;
     }
+  } finally {
+    preloadState.loopPromise = null;
   }
-
-  preloadState.loopPromise = null;
 }
 
 async function startPreloadCycle(options = {}) {
-  const {
-    referenceDate = new Date(),
-    mode = "current",
-    forceRestart = false,
-  } = options;
+  const { referenceDate = new Date(), forceRestart = false } = options;
 
   if (preloadState.running && !forceRestart) {
     return;
@@ -377,13 +285,12 @@ async function startPreloadCycle(options = {}) {
     }
   }
 
-  resetPreloadCursor(referenceDate, mode);
-  const cycleLabel = mode === "full-day"
-    ? `Pre-cache: ciclo ativo para ${startOfDay(referenceDate).toLocaleDateString("pt-BR")}`
-    : "Pre-cache: ciclo ativo";
-  setPreloadTooltip(cycleLabel);
+  const dateKey = getDateKey(referenceDate);
+  preloadState.activeDateKey = dateKey;
   preloadState.running = true;
-  preloadState.loopPromise = runPreloadLoop();
+
+  setPreloadTooltip(`Pre-cache: ciclo ativo para ${referenceDate.toLocaleDateString("pt-BR")}`);
+  preloadState.loopPromise = runPreloadCycle(dateKey);
 }
 
 function setStatus(message) {
@@ -911,6 +818,10 @@ ui.loadHistoricalBtn.addEventListener("click", () => {
   openHistoricalModal();
 });
 
+ui.viewMovementLink?.addEventListener("click", () => {
+  trackGaEvent("open_movement_view");
+});
+
 ui.cancelHistoricalBtn.addEventListener("click", () => {
   trackGaEvent("close_historical_modal", { method: "cancel_button" });
   closeHistoricalModal();
@@ -943,7 +854,6 @@ ui.confirmHistoricalBtn.addEventListener("click", async () => {
     updateLoadButtonState();
     await startPreloadCycle({
       referenceDate: selectedDate,
-      mode: "full-day",
       forceRestart: true,
     });
   }
@@ -1004,10 +914,7 @@ updatePaginationControls(0);
 getLineData().catch(() => {});
 getVehicleTypeData().catch(() => {});
 fetchCurrentData().finally(() => {
-  startPreloadCycle({
-    referenceDate: previousMinute(new Date()),
-    mode: "current",
-  });
+  startPreloadCycle({ referenceDate: new Date() });
 });
 autoUpdate?.start();
 updateLoadButtonState();
