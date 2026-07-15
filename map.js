@@ -9,6 +9,7 @@ import {
   formatDateLabel,
   getInterpolatedPoint,
   getMarkerColor,
+  isOutOfService,
   toDateInputValue,
 } from "./ui/movimentacaoUi.js";
 
@@ -138,10 +139,16 @@ function renderFrame(t) {
       marker.setLatLng([point.lat, point.lon]);
     }
 
-    const hexEl = marker.getElement()?.querySelector(".hex-shape");
+    const outOfService = isOutOfService(point.codigolinha);
+    const markerEl = marker.getElement();
+    const hexEl = markerEl?.querySelector(".hex-shape");
+
     if (hexEl) {
       hexEl.style.background = getMarkerColor(point.situacao);
     }
+
+    markerEl?.classList.toggle("vehicle-hex-marker--out-of-service", outOfService);
+    marker.setZIndexOffset(outOfService ? -1000 : 0);
     marker.setTooltipContent(buildTooltipHtml(cod, point, track));
   }
 

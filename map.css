@@ -396,3 +396,7 @@ body {
   border: 1.5px solid #1e293b;
   clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
 }
+
+.vehicle-hex-marker--out-of-service .hex-shape {
+  opacity: 0.4;
+}
