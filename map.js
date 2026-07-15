@@ -42,6 +42,8 @@ const ui = {
   syncOverlay: document.querySelector("#syncOverlay"),
   syncOverlayMessage: document.querySelector("#syncOverlayMessage"),
   cancelSyncBtn: document.querySelector("#cancelSyncBtn"),
+  recenterBtn: null,
+  hideOutOfServiceCheckbox: null,
 };
 
 const state = {
@@ -55,6 +57,7 @@ const state = {
   markers: new Map(),
   wasPlayingBeforeSeek: false,
   syncToken: 0,
+  hideOutOfService: false,
 };
 
 function setStatus(message) {
@@ -99,6 +102,70 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 }).addTo(map);
 const markerLayer = L.layerGroup().addTo(map);
 
+const RecenterControl = L.Control.extend({
+  options: { position: "topleft" },
+
+  onAdd() {
+    const container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
+
+    this.recenterBtn = L.DomUtil.create("a", "leaflet-control-recenter", container);
+    this.recenterBtn.href = "#";
+    this.recenterBtn.title = "Centralizar mapa nos veículos";
+    this.recenterBtn.setAttribute("role", "button");
+    this.recenterBtn.setAttribute("aria-label", "Centralizar mapa nos veículos");
+    this.recenterBtn.innerHTML = "🎯";
+
+    L.DomEvent.disableClickPropagation(container);
+
+    return container;
+  },
+});
+
+const recenterControl = new RecenterControl();
+recenterControl.addTo(map);
+ui.recenterBtn = recenterControl.recenterBtn;
+
+ui.recenterBtn.addEventListener("click", (event) => {
+  event.preventDefault();
+  trackGaEvent("recenter_map");
+
+  if (state.track) {
+    fitMapToTrack(state.track);
+  } else {
+    map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+  }
+});
+
+const MapControls = L.Control.extend({
+  options: { position: "topright" },
+
+  onAdd() {
+    const container = L.DomUtil.create("div", "leaflet-control map-controls-panel");
+    L.DomEvent.disableClickPropagation(container);
+    L.DomEvent.disableScrollPropagation(container);
+
+    const checkboxLabel = L.DomUtil.create("label", "map-control-checkbox", container);
+    this.hideOutOfServiceCheckbox = L.DomUtil.create("input", "", checkboxLabel);
+    this.hideOutOfServiceCheckbox.type = "checkbox";
+    checkboxLabel.appendChild(document.createTextNode("Ocultar fora de operação"));
+
+    return container;
+  },
+});
+
+const mapControls = new MapControls();
+mapControls.addTo(map);
+ui.hideOutOfServiceCheckbox = mapControls.hideOutOfServiceCheckbox;
+
+ui.hideOutOfServiceCheckbox.addEventListener("change", () => {
+  state.hideOutOfService = ui.hideOutOfServiceCheckbox.checked;
+  trackGaEvent("toggle_hide_out_of_service", { hidden: state.hideOutOfService });
+
+  if (state.track) {
+    renderFrame(state.currentTime);
+  }
+});
+
 function recomputeVisibleCods() {
   state.visibleCods = state.track
     ? state.filteredCods
@@ -128,6 +195,12 @@ function renderFrame(t) {
       continue;
     }
 
+    const outOfService = isOutOfService(point.codigolinha);
+
+    if (outOfService && state.hideOutOfService) {
+      continue;
+    }
+
     activeCods.add(cod);
 
     let marker = state.markers.get(cod);
@@ -139,7 +212,6 @@ function renderFrame(t) {
       marker.setLatLng([point.lat, point.lon]);
     }
 
-    const outOfService = isOutOfService(point.codigolinha);
     const markerEl = marker.getElement();
     const hexEl = markerEl?.querySelector(".hex-shape");
 
