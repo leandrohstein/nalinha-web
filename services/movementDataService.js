@@ -157,7 +157,16 @@ async function buildLabelMaps(codigolinhaSet, tipoVeicSet) {
   const vehicleTypeEntries = await Promise.all(
     [...tipoVeicSet].map(async (id) => {
       const item = await getVehicleTypeById(id);
-      return [id, item ? String(item.nome ?? "") : ""];
+      return [
+        id,
+        item
+          ? {
+              nome: String(item.nome ?? ""),
+              icone: String(item.icone ?? ""),
+              tecnologia: Array.isArray(item.tecnologia) ? item.tecnologia : [],
+            }
+          : null,
+      ];
     })
   );
 

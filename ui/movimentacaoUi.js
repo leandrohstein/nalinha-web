@@ -325,16 +325,60 @@ export function computeFirstLineEntryTime(operationWindows) {
   return earliest;
 }
 
+const TECH_ICON_DEFS = {
+  "Elétrico": {
+    className: "vehicle-tech-icon--electric",
+    title: "Elétrico",
+    svg: '<path d="M11 21h-1l1-7H7.5c-.88 0-.33-.75-.31-.78C8.48 10.94 10.42 7.54 13.01 3h1l-1 7h3.51c.4 0 .62.19.4.66C12.97 17.55 11 21 11 21z"/>',
+  },
+  Biodiesel: {
+    className: "vehicle-tech-icon--leaf",
+    title: "Biodiesel",
+    svg: '<path d="M17 8C8 10 5.9 16.17 3.82 21.34l1.89.66.95-2.3c.48.17.98.3 1.34.3C19 20 22 3 22 3c-1 2-8 2.25-13 3.25S2 11.5 2 13.5s1.75 3.75 1.75 3.75C7 8 17 8 17 8z"/>',
+  },
+  "Híbrido": {
+    className: "vehicle-tech-icon--leaf",
+    title: "Híbrido",
+    svg: '<path d="M17 8C8 10 5.9 16.17 3.82 21.34l1.89.66.95-2.3c.48.17.98.3 1.34.3C19 20 22 3 22 3c-1 2-8 2.25-13 3.25S2 11.5 2 13.5s1.75 3.75 1.75 3.75C7 8 17 8 17 8z"/>',
+  },
+};
+
+function buildVehicleTypeIconsHtml(vehicleType) {
+  if (!vehicleType) {
+    return "";
+  }
+
+  const badgeHtml = vehicleType.icone
+    ? `<span class="vehicle-type-badge" title="${escapeHtml(vehicleType.nome)}">${escapeHtml(vehicleType.icone)}</span>`
+    : "";
+
+  const seenTech = new Set();
+  const techHtml = (vehicleType.tecnologia || [])
+    .map((tech) => TECH_ICON_DEFS[tech])
+    .filter((def) => def && !seenTech.has(def.className) && seenTech.add(def.className))
+    .map(
+      (def) =>
+        `<span class="vehicle-tech-icon ${def.className}" title="${escapeHtml(def.title)}"><svg viewBox="0 0 24 24">${def.svg}</svg></span>`
+    )
+    .join("");
+
+  if (!badgeHtml && !techHtml) {
+    return "";
+  }
+
+  return `<span class="vehicle-type-icons">${badgeHtml}${techHtml}</span>`;
+}
+
 export function buildTooltipHtml(cod, point, track) {
   const lineLabel = track.lineLabels[point.codigolinha] ?? point.codigolinha ?? "";
-  const vehicleTypeLabel = track.vehicleTypeLabels[point.tipoVeic] ?? "";
+  const vehicleTypeHtml = buildVehicleTypeIconsHtml(track.vehicleTypeLabels[point.tipoVeic]);
   const adaptBadge = point.adapt === "1" ? " ♿" : "";
   const staleBadge = point.stale ? " ⚠️" : "";
 
   const lines = [
     `<strong>${escapeHtml(cod)}</strong>${adaptBadge}${staleBadge}`,
     lineLabel ? escapeHtml(lineLabel) : "",
-    [point.situacao, vehicleTypeLabel].filter(Boolean).map(escapeHtml).join(" • "),
+    [point.situacao ? escapeHtml(point.situacao) : "", vehicleTypeHtml].filter(Boolean).join(" • "),
     point.stale ? "Sem atualização neste minuto" : "",
   ].filter(Boolean);
 
