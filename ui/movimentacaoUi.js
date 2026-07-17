@@ -75,6 +75,25 @@ export function isOutOfService(codigolinha) {
   return String(codigolinha ?? "").trim().toUpperCase() === "REC";
 }
 
+/**
+ * Acha a linha que um veiculo opera no dia, varrendo todos os seus quadros
+ * (nao so o instante atual) - assim ainda encontra a linha mesmo que no
+ * momento atual o veiculo esteja fora de operacao (REC).
+ */
+export function findVehicleLineCode(frames) {
+  if (!frames) {
+    return null;
+  }
+
+  for (const frame of frames) {
+    if (!isOutOfService(frame.codigolinha)) {
+      return frame.codigolinha;
+    }
+  }
+
+  return null;
+}
+
 export function parseVehicleFilter(rawInput) {
   const trimmed = rawInput.trim();
   if (!trimmed) {

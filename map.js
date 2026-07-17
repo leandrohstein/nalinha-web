@@ -17,6 +17,7 @@ import {
   computeFilteredCods,
   computeFirstLineEntryTime,
   computeOperationWindows,
+  findVehicleLineCode,
   formatClock,
   formatDateLabel,
   getInterpolatedPoint,
@@ -34,6 +35,8 @@ const DEFAULT_CENTER = [-25.4284, -49.2733];
 const DEFAULT_ZOOM = 12;
 const KEYBOARD_SEEK_STEP_MS = 60 * 1000;
 const LINE_ROUTE_DEBOUNCE_MS = 400;
+const VEHICLE_PREFIX_LENGTH = 5;
+const PREFIX_MATCH_ZOOM = 16;
 const LINE_ROUTE_STYLE = { color: "#7c3aed", weight: 4, opacity: 0.7 };
 const LINE_ROUTE_POINT_MIN_RADIUS = 3;
 const LINE_ROUTE_POINT_MAX_RADIUS = 8.33;
@@ -717,12 +720,52 @@ function clearLineRoute() {
   routeLayer.clearLayers();
 }
 
-async function updateLineRoute() {
-  const requestToken = state.lineRouteToken;
+/**
+ * Quando o filtro e por prefixo completo (5 caracteres) e casa com exatamente
+ * um veiculo, retorna o codigo desse veiculo - usado tanto para o zoom
+ * automatico quanto para achar a linha que ele opera.
+ */
+function resolveSinglePrefixMatchCod() {
   const filter = state.filterInfo;
 
+  if (!filter || filter.field !== "prefixo" || filter.value.length !== VEHICLE_PREFIX_LENGTH) {
+    return null;
+  }
+
+  if (!state.filteredCods || state.filteredCods.size !== 1) {
+    return null;
+  }
+
+  return state.filteredCods.values().next().value;
+}
+
+/**
+ * Resolve qual codigo de linha deve ter o trajeto (geoJson) exibido no mapa:
+ * o valor do proprio filtro quando ele e por linha, ou a linha que o veiculo
+ * opera no dia quando o filtro e por um prefixo completo que casa com um
+ * unico veiculo (mesmo que no instante atual esse veiculo esteja fora de
+ * operacao).
+ */
+function resolveRouteLineCode() {
+  const filter = state.filterInfo;
+
+  if (filter?.field === "linha") {
+    return filter.value;
+  }
+
+  const cod = resolveSinglePrefixMatchCod();
+  if (!cod || !state.track) {
+    return null;
+  }
+
+  return findVehicleLineCode(state.track.vehicles[cod]);
+}
+
+async function updateLineRoute(lineCode) {
+  const requestToken = state.lineRouteToken;
+
   try {
-    const [geoJson, lineRecord] = await Promise.all([getLineGeoJson(filter.value), getByCod(filter.value)]);
+    const [geoJson, lineRecord] = await Promise.all([getLineGeoJson(lineCode), getByCod(lineCode)]);
 
     if (requestToken !== state.lineRouteToken) {
       return;
@@ -776,20 +819,21 @@ function scheduleLineRouteUpdate() {
     lineRouteDebounceTimer = null;
   }
 
-  const filter = state.filterInfo;
-
   // Invalida qualquer busca de trajeto em andamento: se o filtro mudou (ou
-  // deixou de ser por linha), a resposta pendente nao deve mais ser aplicada.
+  // deixou de ter uma linha associada), a resposta pendente nao deve mais
+  // ser aplicada.
   state.lineRouteToken += 1;
 
-  if (!filter || filter.field !== "linha") {
+  const lineCode = resolveRouteLineCode();
+
+  if (!lineCode) {
     clearLineRoute();
     return;
   }
 
   lineRouteDebounceTimer = setTimeout(() => {
     lineRouteDebounceTimer = null;
-    updateLineRoute();
+    updateLineRoute(lineCode);
   }, LINE_ROUTE_DEBOUNCE_MS);
 }
 
@@ -858,6 +902,27 @@ function scheduleOperationWindowsRefinement() {
   }, LINE_ROUTE_DEBOUNCE_MS);
 }
 
+/**
+ * Da zoom automatico no veiculo quando o filtro e um prefixo completo (5
+ * caracteres) que casa com exatamente um veiculo - usa a posicao no instante
+ * atual, ou o primeiro quadro do dia se o veiculo nao tiver ponto nesse
+ * instante (ex: filtro digitado antes do inicio da operacao dele).
+ */
+function maybeZoomToPrefixMatch() {
+  const cod = resolveSinglePrefixMatchCod();
+  if (!cod) {
+    return;
+  }
+
+  const frames = state.track.vehicles[cod];
+  if (!frames || frames.length === 0) {
+    return;
+  }
+
+  const point = getInterpolatedPoint(frames, state.currentTime, MOVEMENT_MAX_GAP_MS) ?? frames[0];
+  map.setView([point.lat, point.lon], PREFIX_MATCH_ZOOM);
+}
+
 function applyFilter() {
   state.filterInfo = state.track ? parseVehicleFilter(ui.searchInput.value) : null;
   state.filteredCods = state.track ? computeFilteredCods(state.track, state.filterInfo) : null;
@@ -878,6 +943,7 @@ function applyFilter() {
   if (state.track) {
     applyEffectiveEndTimeToUi();
     renderFrame(state.currentTime);
+    maybeZoomToPrefixMatch();
   }
 }
 
@@ -980,7 +1046,9 @@ async function loadDate(dateKey, options = {}) {
     fitMapToTrack(track);
     renderFrame(state.currentTime);
     updateSeekUi();
+    scheduleLineRouteUpdate();
     scheduleOperationWindowsRefinement();
+    maybeZoomToPrefixMatch();
 
     const vehicleCount = Object.keys(track.vehicles).length;
     setStatus(`Trajetos prontos: ${vehicleCount} veículo(s), ${track.timeline.length} instantâneo(s) em ${formatDateLabel(dateKey)}.`);
