@@ -426,6 +426,29 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+}
+
+.leaflet-control-recenter-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: #7c3aed;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: 0 0 0 1.5px #ffffff;
+}
+
+.leaflet-control-recenter-badge.hidden {
+  display: none;
 }
 
 .leaflet-control-pip.leaflet-disabled {

@@ -102,6 +102,7 @@ const ui = {
   syncOverlayMessage: document.querySelector("#syncOverlayMessage"),
   cancelSyncBtn: document.querySelector("#cancelSyncBtn"),
   recenterBtn: null,
+  recenterLineBadge: null,
   nextOperationBtn: null,
   hideOutOfServiceCheckbox: null,
   hideStopPointsCheckbox: null,
@@ -236,6 +237,8 @@ const RecenterControl = L.Control.extend({
     this.recenterBtn.innerHTML =
       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"></circle><line x1="12" y1="2" x2="12" y2="7"></line><line x1="12" y1="17" x2="12" y2="22"></line><line x1="2" y1="12" x2="7" y2="12"></line><line x1="17" y1="12" x2="22" y2="12"></line></svg>';
 
+    this.recenterLineBadge = L.DomUtil.create("span", "leaflet-control-recenter-badge hidden", this.recenterBtn);
+
     this.pipBtn = L.DomUtil.create("a", "leaflet-control-pip", container);
     this.pipBtn.href = "#";
     this.pipBtn.setAttribute("role", "button");
@@ -260,18 +263,58 @@ const RecenterControl = L.Control.extend({
 const recenterControl = new RecenterControl();
 recenterControl.addTo(map);
 ui.recenterBtn = recenterControl.recenterBtn;
+ui.recenterLineBadge = recenterControl.recenterLineBadge;
 ui.pipBtn = recenterControl.pipBtn;
 
 ui.recenterBtn.addEventListener("click", (event) => {
   event.preventDefault();
   trackGaEvent("recenter_map");
 
-  if (state.track) {
+  const routeBounds = state.filterInfo?.field === "linha" ? getRouteLayerBounds() : null;
+
+  if (routeBounds) {
+    map.fitBounds(routeBounds, { padding: [24, 24] });
+  } else if (state.track) {
     fitMapToTrack(state.track);
   } else {
     map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
   }
 });
+
+let recenterLineBadgeToken = 0;
+
+/**
+ * Mostra no botao de centralizar um badge com o prefixo (codigo) da linha
+ * filtrada, colorido com a cor da linha - so quando o filtro atual e por
+ * linha. A cor e buscada/cacheada em state.lineColorCache (mesmo cache
+ * usado pelos blocos de janela de operacao).
+ */
+async function updateRecenterLineBadge() {
+  const filter = state.filterInfo;
+
+  if (filter?.field !== "linha") {
+    ui.recenterLineBadge.classList.add("hidden");
+    ui.recenterLineBadge.textContent = "";
+    return;
+  }
+
+  const lineCode = filter.value;
+  ui.recenterLineBadge.textContent = lineCode;
+  ui.recenterLineBadge.classList.remove("hidden");
+
+  const token = ++recenterLineBadgeToken;
+
+  if (!state.lineColorCache.has(lineCode)) {
+    const lineRecord = await getByCod(lineCode);
+    state.lineColorCache.set(lineCode, getLineRouteColor(lineRecord));
+  }
+
+  if (token !== recenterLineBadgeToken) {
+    return;
+  }
+
+  ui.recenterLineBadge.style.background = state.lineColorCache.get(lineCode);
+}
 
 L.DomEvent.disableClickPropagation(ui.pipControls);
 
@@ -975,6 +1018,31 @@ function clearLineRoute() {
 }
 
 /**
+ * Bounds do trajeto (geoJson) da linha atualmente exibido no mapa, usado
+ * pelo botao de centralizar quando ha um filtro por linha ativo - cada
+ * camada dentro de routeLayer (o traçado e os pontos de parada) e um
+ * L.geoJSON, que ja tem getBounds() proprio (FeatureGroup).
+ */
+function getRouteLayerBounds() {
+  let bounds = null;
+
+  routeLayer.eachLayer((layer) => {
+    if (typeof layer.getBounds !== "function") {
+      return;
+    }
+
+    const layerBounds = layer.getBounds();
+    if (!layerBounds.isValid()) {
+      return;
+    }
+
+    bounds = bounds ? bounds.extend(layerBounds) : layerBounds;
+  });
+
+  return bounds;
+}
+
+/**
  * Quando o filtro e por prefixo completo (5 caracteres) e casa com exatamente
  * um veiculo, retorna o codigo desse veiculo - usado tanto para o zoom
  * automatico quanto para achar a linha que ele opera.
@@ -1214,6 +1282,7 @@ function applyFilter() {
   scheduleOperationWindowsRefinement();
   renderLineEntryMark(state.track, state.operationWindows);
   renderOperationWindowMarks();
+  updateRecenterLineBadge();
 
   if (state.track) {
     applyEffectiveEndTimeToUi();
@@ -1326,6 +1395,7 @@ async function loadDate(dateKey, options = {}) {
     updateSeekUi();
     scheduleLineRouteUpdate();
     scheduleOperationWindowsRefinement();
+    updateRecenterLineBadge();
     maybeZoomToPrefixMatch();
 
     const vehicleCount = Object.keys(track.vehicles).length;
