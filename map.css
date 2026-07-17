@@ -17,6 +17,7 @@ body {
   max-width: 96vw;
   padding: 20px 24px;
   box-shadow: 0 8px 24px rgba(2, 6, 23, 0.1);
+  height: 90vh;
   max-height: 90vh;
   box-sizing: border-box;
   display: flex;
@@ -257,6 +258,142 @@ body {
   display: none;
 }
 
+/* ── mapa linear (espacamento dos veiculos por sentido) ── */
+.line-linear-map {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-sizing: border-box;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  padding: 10px 14px;
+  overflow: hidden;
+  max-height: 160px;
+  opacity: 1;
+  transition:
+    max-height 0.28s ease,
+    opacity 0.2s ease,
+    padding-block 0.28s ease,
+    margin-block 0.28s ease,
+    border-color 0.28s ease;
+}
+
+.line-linear-map.hidden {
+  max-height: 0;
+  opacity: 0;
+  padding-block: 0;
+  margin-block: -12px;
+  border-color: transparent;
+  pointer-events: none;
+}
+
+.linear-map-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.linear-map-row-label {
+  flex: 0 0 auto;
+  width: 52px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #475569;
+  text-transform: uppercase;
+}
+
+.linear-map-track {
+  position: relative;
+  flex: 1;
+  height: 34px;
+}
+
+.linear-map-vehicles-layer {
+  position: absolute;
+  inset: 0;
+  /* Essa camada cobre a track inteira (pra posicionar os veiculos livremente
+     nela), mas fica por cima dos pontos de parada no DOM - sem isso, o hover
+     nunca alcancava as paradas (nenhum title aparecia) exceto bem em cima de
+     um veiculo. .linear-map-vehicle tem pointer-events:auto proprio, entao
+     continua clicavel/hover normalmente apesar do pai aqui. */
+  pointer-events: none;
+}
+
+.linear-map-rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 4px;
+  border-radius: 2px;
+  transform: translateY(-50%);
+  background: var(--line-color, #7c3aed);
+  opacity: 0.55;
+}
+
+.linear-map-stop {
+  position: absolute;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1.5px solid var(--line-color, #7c3aed);
+  transform: translate(-50%, -50%);
+}
+
+.linear-map-stop--terminal {
+  width: 12px;
+  height: 12px;
+  border-width: 2px;
+}
+
+.linear-map-vehicle {
+  position: absolute;
+  top: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  transform: translate(-50%, -50%);
+  transition: left 0.4s linear;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.linear-map-vehicle:hover .linear-map-vehicle-cod {
+  background: #eef2ff;
+}
+
+.linear-map-vehicle-cod {
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  color: #1e293b;
+  background: #ffffff;
+  border-radius: 3px;
+  padding: 1px 3px;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.25);
+}
+
+.linear-map-vehicle-icon {
+  font-size: 14px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 1px rgba(15, 23, 42, 0.4));
+}
+
+.linear-map-vehicle--pinned .linear-map-vehicle-cod {
+  background: #1e293b;
+  color: #ffffff;
+}
+
+.linear-map-vehicle--pinned .linear-map-vehicle-icon {
+  font-size: 17px;
+}
+
 .map-pip-placeholder p {
   margin: 0;
   font-size: 14px;
@@ -281,6 +418,142 @@ body {
 .leaflet-tooltip {
   font-size: 12px;
   line-height: 1.4;
+}
+
+.tooltip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tooltip-prefix {
+  font-size: 18px;
+}
+
+.vehicle-adapt-badge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  font-size: 18px;
+  line-height: 1;
+  pointer-events: auto;
+}
+
+.tooltip-situacao {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: #9ca3af;
+}
+
+.status-dot--green {
+  background: #16a34a;
+}
+
+.status-dot--yellow {
+  background: #f59e0b;
+}
+
+.status-dot--red {
+  background: #dc2626;
+}
+
+.status-dot--gray {
+  background: #9ca3af;
+}
+
+.vehicle-signal-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.vehicle-signal-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.vehicle-signal-icon--ok {
+  color: #16a34a;
+}
+
+.vehicle-signal-icon--atention {
+  color: #f59e0b;
+}
+
+.vehicle-signal-icon--lost {
+  color: #dc2626;
+}
+
+.vehicle-type-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  vertical-align: middle;
+}
+
+.vehicle-type-badge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  /* .leaflet-tooltip tem pointer-events:none por padrao (pra nao atrapalhar
+     cliques/arrasto do mapa) - sem isso aqui, o hover nunca chega no icone
+     e o title nativo nunca aparece. */
+  pointer-events: auto;
+}
+
+.vehicle-type-badge svg {
+  width: 100%;
+  height: 100%;
+}
+
+.vehicle-tech-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  pointer-events: auto;
+}
+
+.vehicle-tech-icon--eletrico {
+  --tech-icon-bg: #92400e;
+  --tech-icon-fg: #fbbf24;
+}
+
+.vehicle-tech-icon--biodiesel {
+  --tech-icon-bg: #14532d;
+  --tech-icon-fg: #4ade80;
+}
+
+.vehicle-tech-icon--hibrido {
+  --tech-icon-fg-bolt: #fbbf24;
+  --tech-icon-fg-drop: #4ade80;
+  --tech-icon-bg-start: #92400e;
+  --tech-icon-bg-end: #14532d;
+}
+
+.vehicle-tech-icon svg {
+  width: 100%;
+  height: 100%;
 }
 
 .pip-controls {
@@ -336,6 +609,29 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+}
+
+.leaflet-control-recenter-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: #7c3aed;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: 0 0 0 1.5px #ffffff;
+}
+
+.leaflet-control-recenter-badge.hidden {
+  display: none;
 }
 
 .leaflet-control-pip.leaflet-disabled {
@@ -345,6 +641,32 @@ body {
 
 .leaflet-control-pip--active {
   background: #dbeafe;
+}
+
+a.leaflet-control-next-operation {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: none;
+  border: none;
+}
+
+a.leaflet-control-next-operation:hover {
+  background: rgba(0, 0, 0, 0.85);
+  color: #ffffff;
+}
+
+.leaflet-control-next-operation.hidden {
+  display: none;
 }
 
 .map-controls-panel {
@@ -422,11 +744,32 @@ body {
   min-width: 160px;
   display: flex;
   align-items: center;
+  --seek-thumb-size: 14px;
 }
 
+/*
+ * O thumb nativo do range nunca varre 0%-100% da largura do input - ele
+ * fica recuado em meia largura propria em cada ponta, pra nao ultrapassar a
+ * trilha. Isso desalinhava o quadrado do tempo atual em relacao as marcas
+ * de hora/blocos de operacao (posicionadas por % da largura do
+ * .seek-wrapper). Alargar o input em --seek-thumb-size e compensar com
+ * margem negativa de metade disso faz o thumb varrer exatamente 0%-100% do
+ * .seek-wrapper, alinhando com as demais marcacoes.
+ */
 #seekRange {
-  width: 100%;
+  width: calc(100% + var(--seek-thumb-size));
+  margin: 0 calc(var(--seek-thumb-size) * -0.5);
   accent-color: #2563eb;
+}
+
+#seekRange::-webkit-slider-thumb {
+  width: var(--seek-thumb-size);
+  height: var(--seek-thumb-size);
+}
+
+#seekRange::-moz-range-thumb {
+  width: var(--seek-thumb-size);
+  height: var(--seek-thumb-size);
 }
 
 #seekRange:disabled {
@@ -486,6 +829,25 @@ body {
 
 .seek-hour-mark:disabled::before {
   background: #cbd5e1;
+}
+
+.seek-operation-windows {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 4px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.seek-operation-window-block {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  min-width: 2px;
+  border-radius: 2px;
 }
 
 .seek-line-entry-mark {
@@ -619,4 +981,10 @@ body {
   border-style: dashed;
   border-color: #f59e0b;
   box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35);
+}
+
+/* Sem GPS recente (alem de MOVEMENT_MAX_GAP_MS) - mantem a ultima posicao
+   conhecida no lugar de sumir o marcador, so com opacidade reduzida. */
+.vehicle-hex-marker--frozen .hex-shape {
+  opacity: 0.65;
 }

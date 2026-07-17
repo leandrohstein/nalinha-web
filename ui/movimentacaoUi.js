@@ -23,6 +23,19 @@ function lowerBoundIndex(frames, t) {
   return lo - 1;
 }
 
+/**
+ * Congela a posicao no ultimo quadro conhecido (a) quando nao ha como
+ * interpolar com confianca. frozen fica true assim que t passa do horario
+ * desse quadro (t > a.t) - ou seja, imediatamente no primeiro instante sem
+ * dado real de GPS, sem nenhuma tolerancia - e false exatamente em t ===
+ * a.t, que ainda e um dado real. O marcador continua sendo exibido (nunca
+ * mais some por causa de gap), so com opacidade reduzida quando frozen -
+ * ver renderFrame - sem alterar o conteudo do tooltip.
+ */
+function freezeAt(frame, t) {
+  return { ...frame, ratio: 0, frozen: t > frame.t };
+}
+
 export function getInterpolatedPoint(frames, t, maxGapMs) {
   if (!frames || frames.length === 0) {
     return null;
@@ -36,13 +49,13 @@ export function getInterpolatedPoint(frames, t, maxGapMs) {
   const a = frames[idx];
 
   if (idx === frames.length - 1) {
-    return t - a.t <= maxGapMs ? { ...a, ratio: 0 } : null;
+    return freezeAt(a, t);
   }
 
   const b = frames[idx + 1];
 
   if (b.t - a.t > maxGapMs) {
-    return t - a.t <= maxGapMs ? { ...a, ratio: 0 } : null;
+    return freezeAt(a, t);
   }
 
   const ratio = (t - a.t) / (b.t - a.t);
@@ -58,6 +71,12 @@ export function getInterpolatedPoint(frames, t, maxGapMs) {
     tabela: ratio < 0.5 ? a.tabela : b.tabela,
     adapt: ratio < 0.5 ? a.adapt : b.adapt,
     stale: ratio < 0.5 ? a.stale : b.stale,
+    // velocidadeMediaKmh e a velocidade do segmento a->b (que e o que esta
+    // sendo percorrido agora), nao interpolada entre a e b - ja
+    // distanciaAcumuladaM e interpolada linearmente pra crescer suavemente
+    // entre os dois quadros.
+    velocidadeMediaKmh: b.velocidadeMediaKmh,
+    distanciaAcumuladaM: a.distanciaAcumuladaM + (b.distanciaAcumuladaM - a.distanciaAcumuladaM) * ratio,
     ratio,
   };
 }
@@ -73,6 +92,68 @@ export function hasValidSituacao(situacao) {
 
 export function isOutOfService(codigolinha) {
   return String(codigolinha ?? "").trim().toUpperCase() === "REC";
+}
+
+/**
+ * Acha a linha que um veiculo opera no dia, varrendo todos os seus quadros
+ * (nao so o instante atual) - assim ainda encontra a linha mesmo que no
+ * momento atual o veiculo esteja fora de operacao (REC).
+ */
+export function findVehicleLineCode(frames) {
+  if (!frames) {
+    return null;
+  }
+
+  for (const frame of frames) {
+    if (!isOutOfService(frame.codigolinha)) {
+      return frame.codigolinha;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Agrupa os quadros de um veiculo em blocos de servico: sequencias
+ * contiguas com o mesmo codigolinha, ignorando os trechos REC (fora de
+ * operacao) no meio. Um gap de REC so "atravessa" pro mesmo bloco (sem
+ * cortar) se o codigolinha e a tabela forem iguais antes e depois dele -
+ * isso cobre o caso comum de flutuacao momentanea pra REC logo no inicio
+ * da operacao (o AVL ainda nao confirmou a viagem), sem juntar viagens
+ * realmente distintas separadas por um gap real. Troca de linha, ou de
+ * tabela apos um gap, sempre inicia um novo bloco.
+ */
+export function computeServiceBlocks(frames) {
+  if (!frames) {
+    return [];
+  }
+
+  const blocks = [];
+  let current = null;
+  let hasGap = false;
+
+  for (const frame of frames) {
+    if (isOutOfService(frame.codigolinha)) {
+      hasGap = true;
+      continue;
+    }
+
+    const sameLine = current && current.codigolinha === frame.codigolinha;
+    const canBridgeGap = !hasGap || (current && current.tabela === frame.tabela);
+
+    if (sameLine && canBridgeGap) {
+      current.end = frame.t;
+      current.tabela = frame.tabela || current.tabela;
+      hasGap = false;
+      continue;
+    }
+
+    current = { start: frame.t, end: frame.t, codigolinha: frame.codigolinha, tabela: frame.tabela };
+    blocks.push(current);
+    hasGap = false;
+  }
+
+  return blocks;
 }
 
 export function parseVehicleFilter(rawInput) {
@@ -325,17 +406,114 @@ export function computeFirstLineEntryTime(operationWindows) {
   return earliest;
 }
 
+const ICON_SPRITE_PATH = "icons/icons.svg";
+const TECH_ICON_SLUGS = new Set(["eletrico", "biodiesel", "hibrido"]);
+
+let iconSpriteLoaded = null;
+
+export function loadIconSprite() {
+  if (!iconSpriteLoaded) {
+    iconSpriteLoaded = fetch(ICON_SPRITE_PATH)
+      .then((response) => response.text())
+      .then((markup) => {
+        const container = document.createElement("div");
+        // "hidden" (display:none) impede o Chrome de resolver gradientes
+        // (fill:url(#...)) em conteudo referenciado via <use> a partir daqui,
+        // mesmo que cores solidas e clip-path funcionem normalmente - por
+        // isso o container fica com tamanho zero em vez de display:none.
+        container.style.cssText = "position:absolute;width:0;height:0;overflow:hidden";
+        container.innerHTML = markup;
+        document.body.appendChild(container);
+      });
+  }
+
+  return iconSpriteLoaded;
+}
+
+function techIconSlug(tech) {
+  return tech
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function buildVehicleTypeIconsHtml(vehicleType) {
+  if (!vehicleType) {
+    return "";
+  }
+
+  const seenTech = new Set();
+  const techEntries = (vehicleType.tecnologia || [])
+    .map((tech) => ({ tech, slug: techIconSlug(tech) }))
+    .filter(({ slug }) => TECH_ICON_SLUGS.has(slug) && !seenTech.has(slug) && seenTech.add(slug));
+
+  // Titulo combinado (tipo + tecnologia) usado nos dois icones, pra que o
+  // hover em qualquer um dos dois mostre a informacao conectada, nao so a
+  // parte isolada daquele icone.
+  const techLabel = techEntries.map(({ tech }) => tech).join(", ");
+  const combinedLabel = techLabel ? `${vehicleType.nome} · ${techLabel}` : vehicleType.nome;
+
+  const badgeHtml = vehicleType.icone
+    ? `<span class="vehicle-type-badge" title="${escapeHtml(combinedLabel)}"><svg><use href="#vehicle-type-badge-${vehicleType.icone}"></use></svg></span>`
+    : "";
+
+  const techHtml = techEntries
+    .map(
+      ({ slug }) =>
+        `<span class="vehicle-tech-icon vehicle-tech-icon--${slug}" title="${escapeHtml(combinedLabel)}"><svg><use href="#vehicle-tech-icon-${slug}"></use></svg></span>`
+    )
+    .join("");
+
+  if (!badgeHtml && !techHtml) {
+    return "";
+  }
+
+  return `<span class="vehicle-type-icons">${badgeHtml}${techHtml}</span>`;
+}
+
+/**
+ * Icone de sinal/GPS exibido a esquerda do prefixo no tooltip: ok (dado
+ * fresco), atention (point.stale - faltou o dado desse minuto) ou lost
+ * (point.frozen - sem GPS ha mais tempo, posicao congelada). O 4o icone do
+ * sprite (signal-finding) fica disponivel mas nao e usado aqui.
+ */
+function buildSignalIconHtml(point) {
+  const status = point.frozen ? "lost" : point.stale ? "atention" : "ok";
+  const title = { ok: "GPS em dia", atention: "Sem atualização neste minuto", lost: "GPS sem atualização" }[status];
+
+  return `<span class="vehicle-signal-icon vehicle-signal-icon--${status}" title="${title}"><svg><use href="#signal-${status}"></use></svg></span>`;
+}
+
 export function buildTooltipHtml(cod, point, track) {
   const lineLabel = track.lineLabels[point.codigolinha] ?? point.codigolinha ?? "";
-  const vehicleTypeLabel = track.vehicleTypeLabels[point.tipoVeic] ?? "";
-  const adaptBadge = point.adapt === "1" ? " ♿" : "";
+  const signalIconHtml = buildSignalIconHtml(point);
+  const vehicleTypeHtml = buildVehicleTypeIconsHtml(track.vehicleTypeLabels[point.tipoVeic]);
+  const adaptBadge = point.adapt === "1" ? '<span class="vehicle-adapt-badge" title="Acessível">♿</span>' : "";
   const staleBadge = point.stale ? " ⚠️" : "";
 
+  const headerHtml = `<span class="tooltip-header"><span>${signalIconHtml}<strong class="tooltip-prefix">${escapeHtml(cod)}</strong>${adaptBadge}${staleBadge}</span>${vehicleTypeHtml}</span>`;
+
+  const [situacao1, situacao2] = (point.situacao || "")
+    .split(" / ")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  const situacao1Html = situacao1
+    ? `<span class="tooltip-situacao"><span class="status-dot ${getSituationDotClass(situacao1)}" aria-hidden="true"></span>${escapeHtml(situacao1)}</span>`
+    : "";
+
+  const metricsHtml =
+    Number.isFinite(point.velocidadeMediaKmh) && Number.isFinite(point.distanciaAcumuladaM)
+      ? `${Math.ceil(point.velocidadeMediaKmh)} km/h - ${(point.distanciaAcumuladaM / 1000).toFixed(1)} km`
+      : "";
+
   const lines = [
-    `<strong>${escapeHtml(cod)}</strong>${adaptBadge}${staleBadge}`,
+    headerHtml,
     lineLabel ? escapeHtml(lineLabel) : "",
-    [point.situacao, vehicleTypeLabel].filter(Boolean).map(escapeHtml).join(" • "),
+    situacao1Html,
+    situacao2 ? escapeHtml(situacao2) : "",
     point.stale ? "Sem atualização neste minuto" : "",
+    metricsHtml,
   ].filter(Boolean);
 
   return lines.join("<br>");

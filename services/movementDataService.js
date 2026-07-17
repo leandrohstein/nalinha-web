@@ -83,7 +83,7 @@ function round(value, decimals) {
   return Math.round(value * factor) / factor;
 }
 
-function haversineDistanceM(lat1, lon1, lat2, lon2) {
+export function haversineDistanceM(lat1, lon1, lat2, lon2) {
   const dLat = toRadians(lat2 - lat1);
   const dLon = toRadians(lon2 - lon1);
   const a =
@@ -157,7 +157,16 @@ async function buildLabelMaps(codigolinhaSet, tipoVeicSet) {
   const vehicleTypeEntries = await Promise.all(
     [...tipoVeicSet].map(async (id) => {
       const item = await getVehicleTypeById(id);
-      return [id, item ? String(item.nome ?? "") : ""];
+      return [
+        id,
+        item
+          ? {
+              nome: String(item.nome ?? ""),
+              icone: String(item.icone ?? ""),
+              tecnologia: Array.isArray(item.tecnologia) ? item.tecnologia : [],
+            }
+          : null,
+      ];
     })
   );
 

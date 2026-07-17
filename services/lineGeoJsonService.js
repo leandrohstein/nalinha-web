@@ -40,13 +40,19 @@ export async function getLineGeoJson(cod, now = Date.now()) {
 
   const cached = await lineGeoJsonRepository.get(normalizedCod);
 
-  if (cached && isCacheFresh(cached.cachedAt, now)) {
+  // So reaproveita o cache quando ele guarda um trajeto de fato (data !=
+  // null): um "404 nao existe ainda" nao pode ficar preso por 24h, senao a
+  // linha continua sem trajeto no mapa mesmo depois do arquivo ser
+  // publicado no repositorio de dados.
+  if (cached && cached.data !== null && isCacheFresh(cached.cachedAt, now)) {
     return cached.data;
   }
 
   try {
     const { url, data } = await fetchLineGeoJsonFromNetwork(normalizedCod);
-    await lineGeoJsonRepository.set(normalizedCod, data, url, now);
+    if (data !== null) {
+      await lineGeoJsonRepository.set(normalizedCod, data, url, now);
+    }
     return data;
   } catch (error) {
     if (cached) {
