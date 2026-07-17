@@ -101,6 +101,7 @@ const ui = {
   syncOverlayMessage: document.querySelector("#syncOverlayMessage"),
   cancelSyncBtn: document.querySelector("#cancelSyncBtn"),
   recenterBtn: null,
+  nextOperationBtn: null,
   hideOutOfServiceCheckbox: null,
   hideStopPointsCheckbox: null,
   pipBtn: null,
@@ -370,6 +371,41 @@ ui.pipBtn.addEventListener("click", (event) => {
   togglePip();
 });
 
+const NextOperationControl = L.Control.extend({
+  options: { position: "bottomright" },
+
+  onAdd() {
+    const container = L.DomUtil.create("div", "leaflet-control");
+
+    this.nextOperationBtn = L.DomUtil.create("a", "leaflet-control-next-operation hidden", container);
+    this.nextOperationBtn.href = "#";
+    this.nextOperationBtn.setAttribute("role", "button");
+    this.nextOperationBtn.innerHTML =
+      "<span>Pular para a próxima operação</span>" +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>';
+
+    L.DomEvent.disableClickPropagation(container);
+
+    return container;
+  },
+});
+
+const nextOperationControl = new NextOperationControl();
+nextOperationControl.addTo(map);
+ui.nextOperationBtn = nextOperationControl.nextOperationBtn;
+
+ui.nextOperationBtn.addEventListener("click", (event) => {
+  event.preventDefault();
+
+  const targetTime = Number(ui.nextOperationBtn.dataset.targetTime);
+  if (!Number.isFinite(targetTime)) {
+    return;
+  }
+
+  trackGaEvent("movement_jump_next_operation");
+  jumpToTime(targetTime);
+});
+
 const MapControls = L.Control.extend({
   options: { position: "topright" },
 
@@ -477,6 +513,7 @@ function togglePinnedVehicle(cod) {
   }
 
   renderOperationWindowMarks();
+  updateNextOperationButton();
 }
 
 function renderFrame(t) {
@@ -564,6 +601,7 @@ function renderFrame(t) {
   }
 
   ui.pipTimeLabel.textContent = formatClock(t);
+  updateNextOperationButton();
 
   const suffix = state.filteredCods ? ` de ${state.visibleCods.length} filtrado(s)` : "";
   setStatus(
@@ -720,6 +758,45 @@ async function renderOperationWindowMarks() {
 
     ui.seekOperationWindows.appendChild(blockEl);
   }
+}
+
+/**
+ * Encontra o proximo bloco de servico do veiculo fixado (pin) a partir do
+ * instante atual - usado pelo botao "Saltar para a proxima operacao", que
+ * so aparece quando o instante atual esta fora de qualquer bloco (ou seja,
+ * o veiculo esta em REC nesse momento) e existe um bloco futuro pra saltar.
+ */
+function findNextOperationBlock() {
+  if (!state.track || !state.pinnedCod || state.currentTime === null) {
+    return null;
+  }
+
+  const blocks = computeServiceBlocks(state.track.vehicles[state.pinnedCod]);
+  const isInsideAnyBlock = blocks.some((block) => state.currentTime >= block.start && state.currentTime <= block.end);
+
+  if (isInsideAnyBlock) {
+    return null;
+  }
+
+  return blocks.find((block) => block.start > state.currentTime) ?? null;
+}
+
+function updateNextOperationButton() {
+  const nextBlock = findNextOperationBlock();
+
+  if (!nextBlock) {
+    ui.nextOperationBtn.classList.add("hidden");
+    delete ui.nextOperationBtn.dataset.targetTime;
+    return;
+  }
+
+  const lineLabel = state.track.lineLabels[nextBlock.codigolinha] ?? nextBlock.codigolinha;
+  const label = `Saltar para a próxima operação (${lineLabel} às ${formatClock(nextBlock.start)})`;
+
+  ui.nextOperationBtn.title = label;
+  ui.nextOperationBtn.setAttribute("aria-label", label);
+  ui.nextOperationBtn.dataset.targetTime = String(nextBlock.start);
+  ui.nextOperationBtn.classList.remove("hidden");
 }
 
 function renderLineEntryMark(track, operationWindows) {
@@ -1121,6 +1198,7 @@ async function loadDate(dateKey, options = {}) {
   renderHourMarks(null);
   renderLineEntryMark(null, null);
   renderOperationWindowMarks();
+  updateNextOperationButton();
 
   const syncToken = ++state.syncToken;
   const isCancelled = () => state.syncToken !== syncToken;
