@@ -24,9 +24,9 @@
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
      showgrid="false"
-     inkscape:zoom="0.7500982"
-     inkscape:cx="1025.1991"
-     inkscape:cy="420.61159"
+     inkscape:zoom="1"
+     inkscape:cx="453"
+     inkscape:cy="318.5"
      inkscape:window-width="1920"
      inkscape:window-height="1043"
      inkscape:window-x="1920"
@@ -39,182 +39,6 @@
      inkscape:label="Layer 1"
      inkscape:groupmode="layer"
      id="layer1">
-    <g
-       id="g1303"
-       transform="translate(277.10474,-198.20658)"
-       inkscape:label="vehicle-type-badge-S">
-      <circle
-         style="fill:none;stroke:#000000;stroke-width:3.175;stroke-dasharray:none;stroke-opacity:1"
-         id="path234-3-1"
-         cx="119.77029"
-         cy="224.66492"
-         r="24.870834" />
-      <text
-         xml:space="preserve"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:39.6875px;font-family:arial;-inkscape-font-specification:arial;fill:#000000;stroke:#000000;stroke-width:3.175;stroke-dasharray:none;stroke-opacity:1"
-         x="106.54435"
-         y="238.32687"
-         id="text952-5-8"><tspan
-           sodipodi:role="line"
-           id="tspan950-6-7"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:39.6875px;font-family:arial;-inkscape-font-specification:arial;fill:#000000;stroke-width:3.175"
-           x="106.54435"
-           y="238.32687">S</tspan></text>
-    </g>
-    <g
-       id="g1298"
-       transform="translate(305.30548,-200.99898)"
-       inkscape:label="vehicle-type-badge-ME">
-      <circle
-         style="fill:none;stroke:#000000;stroke-width:3.175;stroke-dasharray:none;stroke-opacity:1"
-         id="path234-3-6"
-         cx="38.652874"
-         cy="227.45732"
-         r="24.870834" />
-      <text
-         xml:space="preserve"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:27.7812px;font-family:arial;-inkscape-font-specification:arial;fill:#000000;stroke:#000000;stroke-width:3.175;stroke-dasharray:none;stroke-opacity:1"
-         x="17.274372"
-         y="237.01389"
-         id="text952-7-9"><tspan
-           sodipodi:role="line"
-           id="tspan950-5-2"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:27.7812px;font-family:arial;-inkscape-font-specification:arial;fill:#000000;stroke-width:3.175"
-           x="17.274372"
-           y="237.01389">ME</tspan></text>
-    </g>
-    <g
-       id="g1293"
-       transform="translate(174.5811,-134.80866)"
-       inkscape:label="vehicle-type-badge-M">
-      <circle
-         style="fill:none;stroke:#000000;stroke-width:3.175;stroke-dasharray:none;stroke-opacity:1"
-         id="path234-3-3"
-         cx="116.46059"
-         cy="161.267"
-         r="24.870834" />
-      <text
-         xml:space="preserve"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:39.6875px;font-family:arial;-inkscape-font-specification:arial;fill:#000000;stroke:#000000;stroke-width:3.175;stroke-dasharray:none;stroke-opacity:1"
-         x="99.930588"
-         y="174.91927"
-         id="text952-5-6"><tspan
-           sodipodi:role="line"
-           id="tspan950-6-0"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:39.6875px;font-family:arial;-inkscape-font-specification:arial;fill:#000000;stroke-width:3.175"
-           x="99.930588"
-           y="174.91927">M</tspan></text>
-    </g>
-    <g
-       id="g1319"
-       inkscape:label="vehicle-type-badge-B"
-       transform="translate(204.00006,-137.16005)">
-      <circle
-         style="fill:none;stroke:#000000;stroke-width:3.175;stroke-dasharray:none;stroke-opacity:1"
-         id="path234-3-27"
-         cx="34.124954"
-         cy="163.61839"
-         r="24.870834" />
-      <text
-         xml:space="preserve"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:39.6875px;font-family:arial;-inkscape-font-specification:arial;fill:#000000;stroke:#000000;stroke-width:3.175;stroke-dasharray:none;stroke-opacity:1"
-         x="22.424637"
-         y="177.27066"
-         id="text952-5-0"><tspan
-           sodipodi:role="line"
-           id="tspan950-6-9"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:39.6875px;font-family:arial;-inkscape-font-specification:arial;fill:#000000;stroke-width:3.175"
-           x="22.424637"
-           y="177.27066">B</tspan></text>
-    </g>
-    <g
-       id="g1283"
-       transform="translate(72.410529,-68.416138)"
-       inkscape:label="vehicle-type-badge-A">
-      <circle
-         style="fill:none;stroke:#000000;stroke-width:3.175;stroke-dasharray:none;stroke-opacity:1"
-         id="path234-3-2"
-         cx="112.79781"
-         cy="94.874474"
-         r="24.870834" />
-      <text
-         xml:space="preserve"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:39.6875px;font-family:arial;-inkscape-font-specification:arial;fill:#000000;stroke:#000000;stroke-width:3.175;stroke-dasharray:none;stroke-opacity:1"
-         x="99.562187"
-         y="108.52674"
-         id="text952-5-9"><tspan
-           sodipodi:role="line"
-           id="tspan950-6-1"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:39.6875px;font-family:arial;-inkscape-font-specification:arial;fill:#000000;stroke-width:3.175"
-           x="99.562187"
-           y="108.52674">A</tspan></text>
-    </g>
-    <g
-       id="g1314"
-       inkscape:label="vehicle-type-badge-P"
-       transform="translate(98.16672,-73.321144)">
-      <circle
-         style="fill:none;stroke:#000000;stroke-width:3.175;stroke-dasharray:none;stroke-opacity:1"
-         id="path234-3"
-         cx="34.124954"
-         cy="99.77948"
-         r="24.870834" />
-      <text
-         xml:space="preserve"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:39.6875px;font-family:arial;-inkscape-font-specification:arial;fill:#000000;stroke:#000000;stroke-width:3.175;stroke-dasharray:none;stroke-opacity:1"
-         x="22.424637"
-         y="113.43175"
-         id="text952-5"><tspan
-           sodipodi:role="line"
-           id="tspan950-6"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:39.6875px;font-family:arial;-inkscape-font-specification:arial;fill:#000000;stroke-width:3.175"
-           x="22.424637"
-           y="113.43175">P</tspan></text>
-    </g>
-    <g
-       id="g1273"
-       transform="translate(-31.49355,-6.3487388)"
-       inkscape:label="vehicle-type-badge-SP">
-      <circle
-         style="fill:none;stroke:#000000;stroke-width:3.175;stroke-dasharray:none;stroke-opacity:1"
-         id="path234-6"
-         cx="110.86855"
-         cy="32.807076"
-         r="24.870834" />
-      <text
-         xml:space="preserve"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:31.75px;font-family:arial;-inkscape-font-specification:arial;fill:#000000;stroke:#000000;stroke-width:3.175;stroke-dasharray:none;stroke-opacity:1"
-         x="89.807823"
-         y="43.736641"
-         id="text952-7"><tspan
-           sodipodi:role="line"
-           id="tspan950-5"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:31.75px;font-family:arial;-inkscape-font-specification:arial;fill:#000000;stroke-width:3.175"
-           x="89.807823"
-           y="43.736641">SP</tspan></text>
-    </g>
-    <g
-       id="g1268"
-       inkscape:label="vehicle-type-badge-C"
-       transform="translate(-7.6666199,-9.4822227)">
-      <circle
-         style="fill:none;stroke:#000000;stroke-width:3.175;stroke-dasharray:none;stroke-opacity:1"
-         id="path234"
-         cx="34.124954"
-         cy="35.940559"
-         r="24.870834" />
-      <text
-         xml:space="preserve"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:39.6875px;font-family:arial;-inkscape-font-specification:arial;fill:#000000;stroke:#000000;stroke-width:3.175;stroke-dasharray:none;stroke-opacity:1"
-         x="19.542511"
-         y="49.602516"
-         id="text952"><tspan
-           sodipodi:role="line"
-           id="tspan950"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:39.6875px;font-family:arial;-inkscape-font-specification:arial;fill:#000000;stroke-width:3.175"
-           x="19.542511"
-           y="49.602516">C</tspan></text>
-    </g>
     <g
        id="g4923"
        transform="translate(-36.724327,-142.61718)"
@@ -323,5 +147,182 @@
        id="path1001"
        style="stroke-width:0.00661458"
        inkscape:label="signal-finding" />
+    <g
+       id="g3008"
+       transform="matrix(15.307693,0,0,15.307692,-1014.2901,-1857.8383)"
+       style="stroke-width:0.0653266"
+       inkscape:label="vehicle-type-badge-C">
+      <ellipse
+         style="fill:none;stroke:#000000;stroke-width:0.03456868;stroke-dasharray:none"
+         id="path2543"
+         cx="67.988586"
+         cy="123.09476"
+         rx="1.7197917"
+         ry="1.7197919" />
+      <g
+         aria-label="C"
+         id="text2599"
+         style="font-size:2.64583px;font-family:arial;-inkscape-font-specification:arial;stroke:#000000;stroke-width:0.00691371">
+        <path
+           d="m 68.039618,122.35965 q -0.302307,0 -0.470255,0.19508 -0.167948,0.19379 -0.167948,0.53227 0,0.3346 0.174408,0.53873 0.175699,0.20283 0.47413,0.20283 0.382406,0 0.5749,-0.37853 l 0.201538,0.10076 q -0.112396,0.23513 -0.316518,0.35786 -0.20283,0.12273 -0.471547,0.12273 -0.275176,0 -0.476714,-0.11368 -0.200246,-0.11498 -0.306183,-0.32686 -0.104644,-0.21316 -0.104644,-0.50384 0,-0.43537 0.235127,-0.68213 0.235128,-0.24675 0.651122,-0.24675 0.29068,0 0.485758,0.11368 0.195078,0.11369 0.286804,0.33719 l -0.233836,0.0775 q -0.0633,-0.15891 -0.204121,-0.24288 -0.139526,-0.084 -0.332021,-0.084 z"
+           id="path3105" />
+      </g>
+    </g>
+    <g
+       id="g3018"
+       inkscape:label="vehicle-type-badge-P"
+       transform="matrix(15.307693,0,0,15.307692,-886.19033,-1719.9334)"
+       style="stroke-width:0.0653266">
+      <ellipse
+         style="fill:none;stroke:#000000;stroke-width:0.03456868;stroke-dasharray:none"
+         id="path2543-3-6"
+         cx="66.533997"
+         cy="114.08589"
+         rx="1.7197917"
+         ry="1.7197919" />
+      <g
+         aria-label="P"
+         id="text2707"
+         style="font-size:2.64583px;font-family:arial;-inkscape-font-specification:arial;stroke:#000000;stroke-width:0.00691371">
+        <path
+           d="m 67.238083,113.72351 q 0,0.25838 -0.16924,0.41083 -0.167948,0.15244 -0.457336,0.15244 h -0.53485 v 0.70926 h -0.246755 v -1.8203 h 0.766102 q 0.306183,0 0.474131,0.1434 0.167948,0.1434 0.167948,0.40437 z m -0.248046,0.003 q 0,-0.35269 -0.423746,-0.35269 h -0.489634 v 0.7183 h 0.499969 q 0.413411,0 0.413411,-0.36561 z"
+           id="path3113" />
+      </g>
+    </g>
+    <g
+       id="g3013"
+       inkscape:label="vehicle-type-badge-SP"
+       transform="matrix(15.307693,0,0,15.307692,-517.51344,-1870.2543)"
+       style="stroke-width:0.0653266">
+      <ellipse
+         style="fill:none;stroke:#000000;stroke-width:0.03456868;stroke-dasharray:none"
+         id="path2543-3"
+         cx="38.99271"
+         cy="123.90585"
+         rx="1.7197917"
+         ry="1.7197919" />
+      <g
+         aria-label="SP"
+         id="text2711"
+         style="font-size:1.85208px;font-family:'Noto Naskh Arabic';-inkscape-font-specification:'Noto Naskh Arabic';stroke:#000000;stroke-width:0.00691371">
+        <path
+           d="m 38.853805,124.2133 q 0,0.17595 -0.127794,0.27411 -0.127793,0.0982 -0.344486,0.0982 -0.111125,0 -0.205581,-0.0167 -0.09446,-0.0167 -0.157427,-0.0463 v -0.15928 q 0.06667,0.0296 0.164835,0.0537 0.100012,0.0241 0.205581,0.0241 0.148166,0 0.222249,-0.0574 0.07594,-0.0574 0.07594,-0.15557 0,-0.0648 -0.02778,-0.10928 -0.02778,-0.0445 -0.09631,-0.0815 -0.06667,-0.0389 -0.18706,-0.0815 -0.168539,-0.0611 -0.255587,-0.15002 -0.08519,-0.0889 -0.08519,-0.24262 0,-0.10557 0.05371,-0.17965 0.05371,-0.0759 0.148166,-0.11668 0.09631,-0.0408 0.220398,-0.0408 0.109273,0 0.200024,0.0204 0.09075,0.0204 0.164836,0.0537 l -0.05186,0.14261 q -0.06853,-0.0296 -0.150018,-0.05 -0.07964,-0.0204 -0.166687,-0.0204 -0.12409,0 -0.18706,0.0537 -0.06297,0.0519 -0.06297,0.1389 0,0.0667 0.02778,0.11113 0.02778,0.0445 0.09075,0.0796 0.06297,0.0352 0.170391,0.0759 0.116681,0.0426 0.196321,0.0926 0.08149,0.0482 0.122237,0.11668 0.0426,0.0685 0.0426,0.17224 z"
+           id="path3108" />
+        <path
+           d="m 39.470547,123.24466 q 0.259291,0 0.377824,0.10187 0.118534,0.10186 0.118534,0.28707 0,0.10927 -0.05001,0.20558 -0.04815,0.0945 -0.164835,0.15372 -0.114829,0.0593 -0.313001,0.0593 h -0.151871 v 0.51488 h -0.166687 v -1.32239 z m -0.01482,0.14261 h -0.16854 v 0.52229 h 0.13335 q 0.188912,0 0.281516,-0.0611 0.0926,-0.0611 0.0926,-0.20743 0,-0.1278 -0.08149,-0.19077 -0.08149,-0.063 -0.257439,-0.063 z"
+           id="path3110" />
+      </g>
+    </g>
+    <g
+       id="g3039"
+       inkscape:label="vehicle-type-badge-ME"
+       transform="matrix(15.307693,0,0,15.307692,-1037.0032,-1857.8383)"
+       style="stroke-width:0.0653266">
+      <ellipse
+         style="fill:none;stroke:#000000;stroke-width:0.03456868;stroke-dasharray:none"
+         id="path2543-3-0"
+         cx="90.213562"
+         cy="123.09476"
+         rx="1.7197917"
+         ry="1.7197919" />
+      <g
+         aria-label="ME"
+         id="text2711-9"
+         style="font-size:1.85208px;font-family:arial;-inkscape-font-specification:arial;stroke:#000000;stroke-width:0.00691371;stroke-dasharray:none"
+         transform="translate(-2.0988281e-5)">
+        <path
+           d="m 89.587558,123.75595 -0.435239,-1.1594 h -0.0074 q 0.0056,0.0574 0.0093,0.15557 0.0037,0.0963 0.0037,0.20188 v 0.80195 h -0.153722 v -1.32238 h 0.246326 l 0.407458,1.08346 h 0.0074 l 0.414866,-1.08346 h 0.244475 v 1.32238 h -0.164835 v -0.81306 q 0,-0.0963 0.0037,-0.19077 0.0056,-0.0945 0.0093,-0.15372 h -0.0074 l -0.440795,1.15755 z"
+           style="font-family:'Noto Naskh Arabic';-inkscape-font-specification:'Noto Naskh Arabic';stroke-width:0.00691371;stroke-dasharray:none"
+           id="path2951" />
+        <path
+           d="m 91.422969,123.75595 h -0.73898 v -1.32238 h 0.73898 v 0.14631 h -0.572293 v 0.41301 h 0.538955 v 0.14447 h -0.538955 v 0.47228 h 0.572293 z"
+           style="font-family:'Noto Naskh Arabic';-inkscape-font-specification:'Noto Naskh Arabic';stroke-width:0.00691371;stroke-dasharray:none"
+           id="path2953" />
+      </g>
+    </g>
+    <g
+       id="g3023"
+       inkscape:label="vehicle-type-badge-A"
+       transform="matrix(15.307693,0,0,15.307692,-502.01975,-1676.6427)"
+       style="stroke-width:0.0653266">
+      <ellipse
+         style="fill:none;stroke:#000000;stroke-width:0.03456868;stroke-dasharray:none"
+         id="path2543-3-6-7"
+         cx="44.894295"
+         cy="111.25786"
+         rx="1.7197917"
+         ry="1.7197919" />
+      <g
+         aria-label="A"
+         id="text2707-5"
+         style="font-size:2.64583px;font-family:arial;-inkscape-font-specification:arial;stroke:#000000;stroke-width:0.00691371">
+        <path
+           d="m 45.519575,112.16801 -0.207997,-0.53227 h -0.829406 l -0.209289,0.53227 h -0.255798 l 0.742848,-1.8203 h 0.280344 l 0.73122,1.8203 z m -0.6227,-1.63427 -0.01163,0.0362 q -0.0323,0.10722 -0.0956,0.27517 l -0.232543,0.59816 h 0.680836 l -0.233836,-0.60074 q -0.03617,-0.0891 -0.07235,-0.20154 z"
+           id="path3116" />
+      </g>
+    </g>
+    <g
+       id="g3028"
+       inkscape:label="vehicle-type-badge-B"
+       transform="matrix(15.307693,0,0,15.307692,-458.2913,-1992.2699)"
+       style="stroke-width:0.0653266">
+      <ellipse
+         style="fill:none;stroke:#000000;stroke-width:0.03456868;stroke-dasharray:none"
+         id="path2543-3-6-7-5"
+         cx="45.49453"
+         cy="131.87672"
+         rx="1.7197917"
+         ry="1.7197919" />
+      <g
+         aria-label="B"
+         id="text2707-5-6"
+         style="font-size:2.64583px;font-family:arial;-inkscape-font-specification:arial;stroke:#000000;stroke-width:0.00691371">
+        <path
+           d="m 46.198616,132.27398 q 0,0.24288 -0.176991,0.37853 -0.176992,0.13436 -0.492217,0.13436 h -0.738972 v -1.8203 h 0.661457 q 0.640787,0 0.640787,0.44183 0,0.16149 -0.09043,0.2713 -0.09043,0.10981 -0.255798,0.14728 0.217041,0.0258 0.334605,0.14598 0.117563,0.11886 0.117563,0.30102 z m -0.353983,-0.83587 q 0,-0.14728 -0.100769,-0.21058 -0.100768,-0.0633 -0.291971,-0.0633 H 45.03719 v 0.57619 h 0.414703 q 0.197662,0 0.294555,-0.0736 0.09819,-0.0749 0.09819,-0.22867 z m 0.104645,0.81649 q 0,-0.32169 -0.452168,-0.32169 h -0.45992 v 0.65629 h 0.479298 q 0.226085,0 0.329437,-0.084 0.103353,-0.084 0.103353,-0.25063 z"
+           id="path3119" />
+      </g>
+    </g>
+    <g
+       id="g3033"
+       inkscape:label="vehicle-type-badge-M"
+       transform="matrix(15.307693,0,0,15.307692,-532.65549,-1870.2543)"
+       style="stroke-width:0.0653266">
+      <ellipse
+         style="fill:none;stroke:#000000;stroke-width:0.03456868;stroke-dasharray:none"
+         id="path2543-3-6-7-9"
+         cx="53.809361"
+         cy="123.90585"
+         rx="1.7197917"
+         ry="1.7197919" />
+      <g
+         aria-label="M"
+         id="text2707-5-1"
+         style="font-size:2.64583px;font-family:arial;-inkscape-font-specification:arial;stroke:#000000;stroke-width:0.00691371">
+        <path
+           d="m 54.472111,124.816 v -1.21439 q 0,-0.20154 0.01163,-0.38758 -0.0633,0.23126 -0.113688,0.36174 l -0.470255,1.24023 h -0.173116 l -0.476714,-1.24023 -0.07235,-0.21963 -0.04263,-0.14211 0.0039,0.14341 0.0052,0.24417 v 1.21439 h -0.219624 v -1.8203 h 0.324269 l 0.484466,1.2622 q 0.02584,0.0762 0.04909,0.16407 0.02455,0.0866 0.0323,0.12531 0.01034,-0.0517 0.04263,-0.15632 0.03359,-0.10593 0.04522,-0.13306 l 0.475423,-1.2622 h 0.316517 v 1.8203 z"
+           id="path3122" />
+      </g>
+    </g>
+    <g
+       id="g3044"
+       inkscape:label="vehicle-type-badge-S"
+       transform="matrix(15.307693,0,0,15.307692,-1138.5143,-1765.2974)"
+       style="stroke-width:0.0653266">
+      <ellipse
+         style="fill:none;stroke:#000000;stroke-width:0.03456868;stroke-dasharray:none"
+         id="path2543-3-6-7-9-6"
+         cx="100.30181"
+         cy="117.04937"
+         rx="1.7197917"
+         ry="1.7197919" />
+      <g
+         aria-label="S"
+         id="text2707-5-1-0"
+         style="font-size:2.64583px;font-family:arial;-inkscape-font-specification:arial;stroke:#000000;stroke-width:0.00691371">
+        <path
+           d="m 101.06339,117.45761 q 0,0.25192 -0.19766,0.39015 -0.19637,0.13824 -0.55423,0.13824 -0.665334,0 -0.77127,-0.46251 l 0.239003,-0.0478 q 0.04134,0.16408 0.175699,0.24159 0.134358,0.0762 0.365608,0.0762 0.23901,0 0.3682,-0.0814 0.13048,-0.0827 0.13048,-0.24158 0,-0.0892 -0.0413,-0.1447 -0.04,-0.0555 -0.11369,-0.0917 -0.0736,-0.0362 -0.1757,-0.0607 -0.10206,-0.0245 -0.22608,-0.053 -0.21575,-0.0478 -0.328148,-0.0956 -0.111104,-0.0478 -0.1757,-0.10594 -0.06459,-0.0594 -0.09948,-0.13823 -0.03359,-0.0788 -0.03359,-0.18087 0,-0.23384 0.178283,-0.36044 0.179575,-0.12661 0.512891,-0.12661 0.31006,0 0.47413,0.0956 0.16407,0.0943 0.22996,0.32298 l -0.24288,0.0426 q -0.04,-0.14469 -0.15245,-0.20929 -0.11239,-0.0659 -0.31135,-0.0659 -0.21833,0 -0.333309,0.0724 -0.11498,0.0724 -0.11498,0.21575 0,0.084 0.04393,0.13953 0.04522,0.0543 0.129194,0.093 0.084,0.0375 0.3346,0.093 0.084,0.0194 0.16666,0.0401 0.084,0.0194 0.16019,0.0478 0.0762,0.0271 0.14211,0.0646 0.0672,0.0375 0.11628,0.0917 0.0491,0.0543 0.0762,0.1279 0.0284,0.0736 0.0284,0.17312 z"
+           id="path3125" />
+      </g>
+    </g>
   </g>
 </svg>

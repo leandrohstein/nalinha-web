@@ -442,17 +442,25 @@ function buildVehicleTypeIconsHtml(vehicleType) {
     return "";
   }
 
+  const seenTech = new Set();
+  const techEntries = (vehicleType.tecnologia || [])
+    .map((tech) => ({ tech, slug: techIconSlug(tech) }))
+    .filter(({ slug }) => TECH_ICON_SLUGS.has(slug) && !seenTech.has(slug) && seenTech.add(slug));
+
+  // Titulo combinado (tipo + tecnologia) usado nos dois icones, pra que o
+  // hover em qualquer um dos dois mostre a informacao conectada, nao so a
+  // parte isolada daquele icone.
+  const techLabel = techEntries.map(({ tech }) => tech).join(", ");
+  const combinedLabel = techLabel ? `${vehicleType.nome} · ${techLabel}` : vehicleType.nome;
+
   const badgeHtml = vehicleType.icone
-    ? `<span class="vehicle-type-badge" title="${escapeHtml(vehicleType.nome)}"><svg><use href="#vehicle-type-badge-${vehicleType.icone}"></use></svg></span>`
+    ? `<span class="vehicle-type-badge" title="${escapeHtml(combinedLabel)}"><svg><use href="#vehicle-type-badge-${vehicleType.icone}"></use></svg></span>`
     : "";
 
-  const seenTech = new Set();
-  const techHtml = (vehicleType.tecnologia || [])
-    .map((tech) => ({ tech, slug: techIconSlug(tech) }))
-    .filter(({ slug }) => TECH_ICON_SLUGS.has(slug) && !seenTech.has(slug) && seenTech.add(slug))
+  const techHtml = techEntries
     .map(
-      ({ tech, slug }) =>
-        `<span class="vehicle-tech-icon vehicle-tech-icon--${slug}" title="${escapeHtml(tech)}"><svg><use href="#vehicle-tech-icon-${slug}"></use></svg></span>`
+      ({ slug }) =>
+        `<span class="vehicle-tech-icon vehicle-tech-icon--${slug}" title="${escapeHtml(combinedLabel)}"><svg><use href="#vehicle-tech-icon-${slug}"></use></svg></span>`
     )
     .join("");
 
@@ -480,10 +488,10 @@ export function buildTooltipHtml(cod, point, track) {
   const lineLabel = track.lineLabels[point.codigolinha] ?? point.codigolinha ?? "";
   const signalIconHtml = buildSignalIconHtml(point);
   const vehicleTypeHtml = buildVehicleTypeIconsHtml(track.vehicleTypeLabels[point.tipoVeic]);
-  const adaptBadge = point.adapt === "1" ? " ♿" : "";
+  const adaptBadge = point.adapt === "1" ? '<span class="vehicle-adapt-badge" title="Acessível">♿</span>' : "";
   const staleBadge = point.stale ? " ⚠️" : "";
 
-  const headerHtml = `<span class="tooltip-header"><span>${signalIconHtml}<strong>${escapeHtml(cod)}</strong>${adaptBadge}${staleBadge}</span>${vehicleTypeHtml}</span>`;
+  const headerHtml = `<span class="tooltip-header"><span>${signalIconHtml}<strong class="tooltip-prefix">${escapeHtml(cod)}</strong>${adaptBadge}${staleBadge}</span>${vehicleTypeHtml}</span>`;
 
   const [situacao1, situacao2] = (point.situacao || "")
     .split(" / ")

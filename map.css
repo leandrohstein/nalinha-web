@@ -291,6 +291,19 @@ body {
   gap: 8px;
 }
 
+.tooltip-prefix {
+  font-size: 18px;
+}
+
+.vehicle-adapt-badge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  font-size: 18px;
+  line-height: 1;
+  pointer-events: auto;
+}
+
 .tooltip-situacao {
   display: inline-flex;
   align-items: center;
@@ -327,8 +340,8 @@ body {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   margin-right: 4px;
   vertical-align: middle;
 }
@@ -362,8 +375,12 @@ body {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 14px;
-  height: 14px;
+  width: 24px;
+  height: 24px;
+  /* .leaflet-tooltip tem pointer-events:none por padrao (pra nao atrapalhar
+     cliques/arrasto do mapa) - sem isso aqui, o hover nunca chega no icone
+     e o title nativo nunca aparece. */
+  pointer-events: auto;
 }
 
 .vehicle-type-badge svg {
@@ -376,8 +393,9 @@ body {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 14px;
-  height: 14px;
+  width: 24px;
+  height: 24px;
+  pointer-events: auto;
 }
 
 .vehicle-tech-icon--eletrico {
