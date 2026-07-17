@@ -17,6 +17,7 @@ import {
   computeFilteredCods,
   computeFirstLineEntryTime,
   computeOperationWindows,
+  computeServiceBlocks,
   findVehicleLineCode,
   formatClock,
   formatDateLabel,
@@ -93,6 +94,7 @@ const ui = {
   totalTimeLabel: document.querySelector("#totalTimeLabel"),
   seekRange: document.querySelector("#seekRange"),
   seekHourMarks: document.querySelector("#seekHourMarks"),
+  seekOperationWindows: document.querySelector("#seekOperationWindows"),
   lineEntryMark: document.querySelector("#lineEntryMark"),
   speedSelect: document.querySelector("#speedSelect"),
   syncOverlay: document.querySelector("#syncOverlay"),
@@ -131,6 +133,8 @@ const state = {
   markerSize: getMarkerSizeForZoom(DEFAULT_ZOOM),
   lineRouteToken: 0,
   lastAutoJumpedEntryTime: null,
+  lineColorCache: new Map(),
+  operationWindowMarksToken: 0,
 };
 
 function setStatus(message) {
@@ -422,10 +426,28 @@ function clearMarkers() {
 }
 
 /**
- * Fixa/desafixa o tooltip do veiculo aberto, independente de hover - o
- * tooltip permanente continua acompanhando o marcador normalmente conforme
- * ele se move nos proximos quadros (renderFrame so atualiza o conteudo via
- * setTooltipContent, sem precisar mexer nesse estado).
+ * Liga o tooltip do marcador (permanent:true) apenas na primeira vez que
+ * for necessario - hover ou pin. Ligar isso de cara pra TODOS os marcadores
+ * na criacao forcava um open+close (com reflow) em cada um, o que travava o
+ * mapa quando o zoom mudava de faixa e centenas de marcadores eram
+ * recriados de uma vez (clearMarkers + renderFrame). permanent:true tambem
+ * desliga o open/close automatico do Leaflet no hover, e o hover/pin sao
+ * controlados manualmente aqui e nos listeners de mouseover/mouseout.
+ */
+function ensureMarkerTooltip(marker) {
+  if (marker.getTooltip()) {
+    return;
+  }
+
+  marker.bindTooltip(marker._pendingTooltipHtml ?? "", { direction: "top", offset: [0, -8], permanent: true });
+}
+
+/**
+ * Fixa/desafixa o tooltip do veiculo aberto. Fixar so chama
+ * openTooltip/closeTooltip no tooltip ja ligado (ou liga na hora, se ainda
+ * nao foi), sem desligar e religar (o que causava o tooltip sumir sozinho
+ * logo apos o clique, por correr junto com a animacao de fechamento do
+ * Leaflet).
  */
 function setMarkerTooltipPinned(cod, pinned) {
   const marker = state.markers.get(cod);
@@ -433,12 +455,11 @@ function setMarkerTooltipPinned(cod, pinned) {
     return;
   }
 
-  const content = marker.getTooltip()?.getContent() ?? "";
-  marker.unbindTooltip();
-  marker.bindTooltip(content, { direction: "top", offset: [0, -8], permanent: pinned });
-
   if (pinned) {
+    ensureMarkerTooltip(marker);
     marker.openTooltip();
+  } else {
+    marker.closeTooltip();
   }
 }
 
@@ -454,6 +475,8 @@ function togglePinnedVehicle(cod) {
     setMarkerTooltipPinned(state.pinnedCod, true);
     map.setView(state.markers.get(state.pinnedCod).getLatLng(), map.getZoom(), { animate: true });
   }
+
+  renderOperationWindowMarks();
 }
 
 function renderFrame(t) {
@@ -487,11 +510,22 @@ function renderFrame(t) {
     let marker = state.markers.get(cod);
     if (!marker) {
       marker = L.marker([point.lat, point.lon], { icon: createHexIcon(state.markerSize) }).addTo(markerLayer);
-      marker.bindTooltip("", { direction: "top", offset: [0, -8], permanent: cod === state.pinnedCod });
+      // O tooltip so e ligado sob demanda (ver ensureMarkerTooltip), no
+      // primeiro hover ou pin - nao aqui na criacao.
+      marker.on("mouseover", () => {
+        ensureMarkerTooltip(marker);
+        marker.openTooltip();
+      });
+      marker.on("mouseout", () => {
+        if (state.pinnedCod !== cod) {
+          marker.closeTooltip();
+        }
+      });
       marker.on("click", () => togglePinnedVehicle(cod));
       state.markers.set(cod, marker);
 
       if (cod === state.pinnedCod) {
+        ensureMarkerTooltip(marker);
         marker.openTooltip();
       }
     } else {
@@ -510,7 +544,12 @@ function renderFrame(t) {
     markerEl?.classList.toggle("vehicle-hex-marker--out-of-service", outOfService);
     markerEl?.classList.toggle("vehicle-hex-marker--stale", Boolean(point.stale));
     marker.setZIndexOffset(belowOtherVehicles ? -1000 : 0);
-    marker.setTooltipContent(buildTooltipHtml(cod, point, track));
+
+    const tooltipHtml = buildTooltipHtml(cod, point, track);
+    marker._pendingTooltipHtml = tooltipHtml;
+    if (marker.getTooltip()) {
+      marker.setTooltipContent(tooltipHtml);
+    }
 
     if (cod === state.pinnedCod) {
       map.setView([point.lat, point.lon], map.getZoom(), { animate: false });
@@ -606,6 +645,80 @@ function renderHourMarks(track) {
     });
 
     ui.seekHourMarks.appendChild(mark);
+  }
+}
+
+/**
+ * Desenha no seekRange, como blocos coloridos, os blocos de servico do
+ * veiculo fixado (pin) - independe de qualquer filtro ativo, e cada bloco e
+ * um trecho continuo em que o veiculo esteve numa linha real (nao REC),
+ * calculado por computeServiceBlocks a partir dos quadros do proprio dia.
+ * Cada bloco e colorido pela categoria da sua propria linha (podem ser
+ * linhas diferentes ao longo do dia), com a cor buscada/cacheada por
+ * codigo em state.lineColorCache.
+ */
+async function renderOperationWindowMarks() {
+  const track = state.track;
+  const cod = state.pinnedCod;
+
+  if (!track || !cod) {
+    ui.seekOperationWindows.innerHTML = "";
+    return;
+  }
+
+  const blocks = computeServiceBlocks(track.vehicles[cod]);
+
+  if (blocks.length === 0) {
+    ui.seekOperationWindows.innerHTML = "";
+    return;
+  }
+
+  const token = ++state.operationWindowMarksToken;
+
+  const uniqueCodes = [...new Set(blocks.map((block) => block.codigolinha))];
+  await Promise.all(
+    uniqueCodes.map(async (code) => {
+      if (!state.lineColorCache.has(code)) {
+        const lineRecord = await getByCod(code);
+        state.lineColorCache.set(code, getLineRouteColor(lineRecord));
+      }
+    })
+  );
+
+  if (token !== state.operationWindowMarksToken) {
+    return;
+  }
+
+  ui.seekOperationWindows.innerHTML = "";
+
+  const startTime = track.startTime;
+  const endTime = getEffectiveEndTime() ?? track.endTime;
+  const totalDuration = endTime - startTime;
+
+  if (totalDuration <= 0) {
+    return;
+  }
+
+  for (const serviceBlock of blocks) {
+    const blockStart = Math.max(serviceBlock.start, startTime);
+    const blockEnd = Math.min(serviceBlock.end, endTime);
+
+    if (blockEnd <= blockStart) {
+      continue;
+    }
+
+    const leftPercent = ((blockStart - startTime) / totalDuration) * 100;
+    const widthPercent = ((blockEnd - blockStart) / totalDuration) * 100;
+    const lineLabel = track.lineLabels[serviceBlock.codigolinha] ?? serviceBlock.codigolinha;
+
+    const blockEl = document.createElement("div");
+    blockEl.className = "seek-operation-window-block";
+    blockEl.style.left = `${leftPercent}%`;
+    blockEl.style.width = `${widthPercent}%`;
+    blockEl.style.background = state.lineColorCache.get(serviceBlock.codigolinha) ?? "#7c3aed";
+    blockEl.title = `${lineLabel} · ${formatClock(blockStart)} - ${formatClock(blockEnd)}`;
+
+    ui.seekOperationWindows.appendChild(blockEl);
   }
 }
 
@@ -920,6 +1033,7 @@ async function refineOperationWindows() {
 
   applyEffectiveEndTimeToUi();
   renderLineEntryMark(track, state.operationWindows);
+  renderOperationWindowMarks();
   renderFrame(state.currentTime);
 }
 
@@ -984,6 +1098,7 @@ function applyFilter() {
   scheduleLineRouteUpdate();
   scheduleOperationWindowsRefinement();
   renderLineEntryMark(state.track, state.operationWindows);
+  renderOperationWindowMarks();
 
   if (state.track) {
     applyEffectiveEndTimeToUi();
@@ -1005,6 +1120,7 @@ async function loadDate(dateKey, options = {}) {
   updateDataControlsAvailability();
   renderHourMarks(null);
   renderLineEntryMark(null, null);
+  renderOperationWindowMarks();
 
   const syncToken = ++state.syncToken;
   const isCancelled = () => state.syncToken !== syncToken;
@@ -1087,6 +1203,7 @@ async function loadDate(dateKey, options = {}) {
     ui.totalTimeLabel.textContent = formatClock(track.endTime);
     renderHourMarks(track);
     renderLineEntryMark(track, state.operationWindows);
+    renderOperationWindowMarks();
 
     fitMapToTrack(track);
     renderFrame(state.currentTime);

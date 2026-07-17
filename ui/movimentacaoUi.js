@@ -94,6 +94,38 @@ export function findVehicleLineCode(frames) {
   return null;
 }
 
+/**
+ * Agrupa os quadros de um veiculo em blocos de servico: sequencias
+ * contiguas com o mesmo codigolinha, ignorando por completo os trechos REC
+ * (fora de operacao). Troca de linha sem passar por REC no meio inicia um
+ * novo bloco.
+ */
+export function computeServiceBlocks(frames) {
+  if (!frames) {
+    return [];
+  }
+
+  const blocks = [];
+  let current = null;
+
+  for (const frame of frames) {
+    if (isOutOfService(frame.codigolinha)) {
+      current = null;
+      continue;
+    }
+
+    if (current && current.codigolinha === frame.codigolinha) {
+      current.end = frame.t;
+      continue;
+    }
+
+    current = { start: frame.t, end: frame.t, codigolinha: frame.codigolinha };
+    blocks.push(current);
+  }
+
+  return blocks;
+}
+
 export function parseVehicleFilter(rawInput) {
   const trimmed = rawInput.trim();
   if (!trimmed) {
