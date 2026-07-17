@@ -538,11 +538,32 @@ a.leaflet-control-next-operation:hover {
   min-width: 160px;
   display: flex;
   align-items: center;
+  --seek-thumb-size: 14px;
 }
 
+/*
+ * O thumb nativo do range nunca varre 0%-100% da largura do input - ele
+ * fica recuado em meia largura propria em cada ponta, pra nao ultrapassar a
+ * trilha. Isso desalinhava o quadrado do tempo atual em relacao as marcas
+ * de hora/blocos de operacao (posicionadas por % da largura do
+ * .seek-wrapper). Alargar o input em --seek-thumb-size e compensar com
+ * margem negativa de metade disso faz o thumb varrer exatamente 0%-100% do
+ * .seek-wrapper, alinhando com as demais marcacoes.
+ */
 #seekRange {
-  width: 100%;
+  width: calc(100% + var(--seek-thumb-size));
+  margin: 0 calc(var(--seek-thumb-size) * -0.5);
   accent-color: #2563eb;
+}
+
+#seekRange::-webkit-slider-thumb {
+  width: var(--seek-thumb-size);
+  height: var(--seek-thumb-size);
+}
+
+#seekRange::-moz-range-thumb {
+  width: var(--seek-thumb-size);
+  height: var(--seek-thumb-size);
 }
 
 #seekRange:disabled {
