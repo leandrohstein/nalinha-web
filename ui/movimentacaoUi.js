@@ -463,13 +463,27 @@ function buildVehicleTypeIconsHtml(vehicleType) {
   return `<span class="vehicle-type-icons">${badgeHtml}${techHtml}</span>`;
 }
 
+/**
+ * Icone de sinal/GPS exibido a esquerda do prefixo no tooltip: ok (dado
+ * fresco), atention (point.stale - faltou o dado desse minuto) ou lost
+ * (point.frozen - sem GPS ha mais tempo, posicao congelada). O 4o icone do
+ * sprite (signal-finding) fica disponivel mas nao e usado aqui.
+ */
+function buildSignalIconHtml(point) {
+  const status = point.frozen ? "lost" : point.stale ? "atention" : "ok";
+  const title = { ok: "GPS em dia", atention: "Sem atualização neste minuto", lost: "GPS sem atualização" }[status];
+
+  return `<span class="vehicle-signal-icon vehicle-signal-icon--${status}" title="${title}"><svg><use href="#signal-${status}"></use></svg></span>`;
+}
+
 export function buildTooltipHtml(cod, point, track) {
   const lineLabel = track.lineLabels[point.codigolinha] ?? point.codigolinha ?? "";
+  const signalIconHtml = buildSignalIconHtml(point);
   const vehicleTypeHtml = buildVehicleTypeIconsHtml(track.vehicleTypeLabels[point.tipoVeic]);
   const adaptBadge = point.adapt === "1" ? " ♿" : "";
   const staleBadge = point.stale ? " ⚠️" : "";
 
-  const headerHtml = `<span class="tooltip-header"><span><strong>${escapeHtml(cod)}</strong>${adaptBadge}${staleBadge}</span>${vehicleTypeHtml}</span>`;
+  const headerHtml = `<span class="tooltip-header"><span>${signalIconHtml}<strong>${escapeHtml(cod)}</strong>${adaptBadge}${staleBadge}</span>${vehicleTypeHtml}</span>`;
 
   const [situacao1, situacao2] = (point.situacao || "")
     .split(" / ")
