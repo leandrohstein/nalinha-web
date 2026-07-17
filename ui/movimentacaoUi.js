@@ -407,10 +407,22 @@ export function buildTooltipHtml(cod, point, track) {
   const adaptBadge = point.adapt === "1" ? " ♿" : "";
   const staleBadge = point.stale ? " ⚠️" : "";
 
+  const headerHtml = `<span class="tooltip-header"><span><strong>${escapeHtml(cod)}</strong>${adaptBadge}${staleBadge}</span>${vehicleTypeHtml}</span>`;
+
+  const [situacao1, situacao2] = (point.situacao || "")
+    .split(" / ")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  const situacao1Html = situacao1
+    ? `<span class="tooltip-situacao"><span class="status-dot ${getSituationDotClass(situacao1)}" aria-hidden="true"></span>${escapeHtml(situacao1)}</span>`
+    : "";
+
   const lines = [
-    `<strong>${escapeHtml(cod)}</strong>${adaptBadge}${staleBadge}`,
+    headerHtml,
     lineLabel ? escapeHtml(lineLabel) : "",
-    [point.situacao ? escapeHtml(point.situacao) : "", vehicleTypeHtml].filter(Boolean).join(" • "),
+    situacao1Html,
+    situacao2 ? escapeHtml(situacao2) : "",
     point.stale ? "Sem atualização neste minuto" : "",
   ].filter(Boolean);
 
