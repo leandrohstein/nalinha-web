@@ -41,6 +41,7 @@ const PREFIX_MATCH_ZOOM = 16;
 const LINE_ROUTE_STYLE = { color: "#7c3aed", weight: 4, opacity: 0.7 };
 const LINE_ROUTE_POINT_MIN_RADIUS = 3;
 const LINE_ROUTE_POINT_MAX_RADIUS = 8.33;
+const LINE_ROUTE_POINT_MIN_ZOOM = 13;
 
 function getLineRoutePointRadius(zoom) {
   const clampedZoom = Math.min(Math.max(zoom, MARKER_SIZE_MIN_ZOOM), MARKER_SIZE_MAX_ZOOM);
@@ -49,7 +50,7 @@ function getLineRoutePointRadius(zoom) {
 }
 
 function getLineRoutePointStyle(zoom) {
-  const hidden = state.hideStopPoints;
+  const hidden = state.hideStopPoints || zoom < LINE_ROUTE_POINT_MIN_ZOOM;
 
   return {
     radius: getLineRoutePointRadius(zoom),
