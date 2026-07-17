@@ -800,3 +800,9 @@ a.leaflet-control-next-operation:hover {
   border-color: #f59e0b;
   box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35);
 }
+
+/* Sem GPS recente (alem de MOVEMENT_MAX_GAP_MS) - mantem a ultima posicao
+   conhecida no lugar de sumir o marcador, so com opacidade reduzida. */
+.vehicle-hex-marker--frozen .hex-shape {
+  opacity: 0.65;
+}

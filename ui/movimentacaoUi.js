@@ -23,6 +23,19 @@ function lowerBoundIndex(frames, t) {
   return lo - 1;
 }
 
+/**
+ * Congela a posicao no ultimo quadro conhecido (a) quando nao ha como
+ * interpolar com confianca. frozen fica true assim que t passa do horario
+ * desse quadro (t > a.t) - ou seja, imediatamente no primeiro instante sem
+ * dado real de GPS, sem nenhuma tolerancia - e false exatamente em t ===
+ * a.t, que ainda e um dado real. O marcador continua sendo exibido (nunca
+ * mais some por causa de gap), so com opacidade reduzida quando frozen -
+ * ver renderFrame - sem alterar o conteudo do tooltip.
+ */
+function freezeAt(frame, t) {
+  return { ...frame, ratio: 0, frozen: t > frame.t };
+}
+
 export function getInterpolatedPoint(frames, t, maxGapMs) {
   if (!frames || frames.length === 0) {
     return null;
@@ -36,13 +49,13 @@ export function getInterpolatedPoint(frames, t, maxGapMs) {
   const a = frames[idx];
 
   if (idx === frames.length - 1) {
-    return t - a.t <= maxGapMs ? { ...a, ratio: 0 } : null;
+    return freezeAt(a, t);
   }
 
   const b = frames[idx + 1];
 
   if (b.t - a.t > maxGapMs) {
-    return t - a.t <= maxGapMs ? { ...a, ratio: 0 } : null;
+    return freezeAt(a, t);
   }
 
   const ratio = (t - a.t) / (b.t - a.t);
@@ -102,9 +115,13 @@ export function findVehicleLineCode(frames) {
 
 /**
  * Agrupa os quadros de um veiculo em blocos de servico: sequencias
- * contiguas com o mesmo codigolinha, ignorando por completo os trechos REC
- * (fora de operacao). Troca de linha sem passar por REC no meio inicia um
- * novo bloco.
+ * contiguas com o mesmo codigolinha, ignorando os trechos REC (fora de
+ * operacao) no meio. Um gap de REC so "atravessa" pro mesmo bloco (sem
+ * cortar) se o codigolinha e a tabela forem iguais antes e depois dele -
+ * isso cobre o caso comum de flutuacao momentanea pra REC logo no inicio
+ * da operacao (o AVL ainda nao confirmou a viagem), sem juntar viagens
+ * realmente distintas separadas por um gap real. Troca de linha, ou de
+ * tabela apos um gap, sempre inicia um novo bloco.
  */
 export function computeServiceBlocks(frames) {
   if (!frames) {
@@ -113,20 +130,27 @@ export function computeServiceBlocks(frames) {
 
   const blocks = [];
   let current = null;
+  let hasGap = false;
 
   for (const frame of frames) {
     if (isOutOfService(frame.codigolinha)) {
-      current = null;
+      hasGap = true;
       continue;
     }
 
-    if (current && current.codigolinha === frame.codigolinha) {
+    const sameLine = current && current.codigolinha === frame.codigolinha;
+    const canBridgeGap = !hasGap || (current && current.tabela === frame.tabela);
+
+    if (sameLine && canBridgeGap) {
       current.end = frame.t;
+      current.tabela = frame.tabela || current.tabela;
+      hasGap = false;
       continue;
     }
 
-    current = { start: frame.t, end: frame.t, codigolinha: frame.codigolinha };
+    current = { start: frame.t, end: frame.t, codigolinha: frame.codigolinha, tabela: frame.tabela };
     blocks.push(current);
+    hasGap = false;
   }
 
   return blocks;

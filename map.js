@@ -129,6 +129,7 @@ const state = {
   lastFrameWallClock: null,
   markers: new Map(),
   pinnedCod: null,
+  autoPinnedCod: null,
   wasPlayingBeforeSeek: false,
   syncToken: 0,
   hideOutOfService: false,
@@ -544,22 +545,63 @@ function setMarkerTooltipPinned(cod, pinned) {
   }
 }
 
-function togglePinnedVehicle(cod) {
+/**
+ * Fixa diretamente o veiculo `cod` (ou desfixa, se `cod` for null) - ao
+ * contrario de togglePinnedVehicle, nao alterna: fixar o mesmo veiculo que
+ * ja esta fixado e um no-op. Usado tanto pelo clique no marcador quanto
+ * pelo auto-pin do filtro por prefixo completo (ver applyPrefixAutoPin).
+ */
+function setPinnedVehicle(cod) {
   const previousPinned = state.pinnedCod;
-  state.pinnedCod = previousPinned === cod ? null : cod;
+  if (previousPinned === cod) {
+    return;
+  }
 
-  if (previousPinned && previousPinned !== state.pinnedCod) {
+  state.pinnedCod = cod;
+
+  if (previousPinned) {
     setMarkerTooltipPinned(previousPinned, false);
   }
 
   if (state.pinnedCod) {
     setMarkerTooltipPinned(state.pinnedCod, true);
-    map.setView(state.markers.get(state.pinnedCod).getLatLng(), map.getZoom(), { animate: true });
+    const marker = state.markers.get(state.pinnedCod);
+    if (marker) {
+      map.setView(marker.getLatLng(), map.getZoom(), { animate: true });
+    }
   }
 
   renderOperationWindowMarks();
   updateNextOperationButton();
   scheduleLineRouteUpdate();
+}
+
+function togglePinnedVehicle(cod) {
+  setPinnedVehicle(state.pinnedCod === cod ? null : cod);
+}
+
+/**
+ * Quando o filtro e um prefixo completo (5 caracteres) que casa com
+ * exatamente um veiculo, fixa esse veiculo automaticamente - como se o pin
+ * tivesse sido clicado - pra que as infos de seek (janelas de operacao,
+ * botao de proxima operacao, trajeto da linha) apareçam sem precisar
+ * clicar no marcador. So desfixa automaticamente quando o desfixado e o
+ * mesmo que foi fixado por essa funcao (nao mexe num pin manual de outro
+ * veiculo feito enquanto o filtro nao era mais um prefixo unico).
+ */
+function applyPrefixAutoPin() {
+  const cod = resolveSinglePrefixMatchCod();
+
+  if (cod) {
+    setPinnedVehicle(cod);
+    state.autoPinnedCod = cod;
+    return;
+  }
+
+  if (state.autoPinnedCod && state.pinnedCod === state.autoPinnedCod) {
+    setPinnedVehicle(null);
+  }
+  state.autoPinnedCod = null;
 }
 
 function renderFrame(t) {
@@ -626,6 +668,7 @@ function renderFrame(t) {
 
     markerEl?.classList.toggle("vehicle-hex-marker--out-of-service", outOfService);
     markerEl?.classList.toggle("vehicle-hex-marker--stale", Boolean(point.stale));
+    markerEl?.classList.toggle("vehicle-hex-marker--frozen", Boolean(point.frozen));
     marker.setZIndexOffset(belowOtherVehicles ? -1000 : 0);
 
     const tooltipHtml = buildTooltipHtml(cod, point, track);
@@ -1268,6 +1311,7 @@ function maybeZoomToPrefixMatch() {
 function applyFilter() {
   state.filterInfo = state.track ? parseVehicleFilter(ui.searchInput.value) : null;
   state.filteredCods = state.track ? computeFilteredCods(state.track, state.filterInfo) : null;
+  applyPrefixAutoPin();
 
   const result = state.track
     ? computeOperationWindows(state.track, state.filterInfo)
@@ -1374,6 +1418,7 @@ async function loadDate(dateKey, options = {}) {
     updateDataControlsAvailability();
     state.filterInfo = parseVehicleFilter(ui.searchInput.value);
     state.filteredCods = computeFilteredCods(track, state.filterInfo);
+    applyPrefixAutoPin();
 
     const windowsResult = computeOperationWindows(track, state.filterInfo);
     state.operationWindows = windowsResult.windows;
