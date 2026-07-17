@@ -313,6 +313,12 @@ body {
 .linear-map-vehicles-layer {
   position: absolute;
   inset: 0;
+  /* Essa camada cobre a track inteira (pra posicionar os veiculos livremente
+     nela), mas fica por cima dos pontos de parada no DOM - sem isso, o hover
+     nunca alcancava as paradas (nenhum title aparecia) exceto bem em cima de
+     um veiculo. .linear-map-vehicle tem pointer-events:auto proprio, entao
+     continua clicavel/hover normalmente apesar do pai aqui. */
+  pointer-events: none;
 }
 
 .linear-map-rail {
@@ -336,6 +342,12 @@ body {
   background: #ffffff;
   border: 1.5px solid var(--line-color, #7c3aed);
   transform: translate(-50%, -50%);
+}
+
+.linear-map-stop--terminal {
+  width: 12px;
+  height: 12px;
+  border-width: 2px;
 }
 
 .linear-map-vehicle {

@@ -43,13 +43,13 @@ export const lineLinearLayoutRepository = {
     );
   },
 
-  async set(cod, groups, cachedAt = Date.now()) {
+  async set(cod, groups, version, cachedAt = Date.now()) {
     return this.withDb(
       (db) =>
         new Promise((resolve, reject) => {
           const tx = db.transaction(LINE_LINEAR_LAYOUT_STORE_NAME, "readwrite");
           const store = tx.objectStore(LINE_LINEAR_LAYOUT_STORE_NAME);
-          const request = store.put({ cod, groups, cachedAt });
+          const request = store.put({ cod, groups, version, cachedAt });
 
           request.onsuccess = () => resolve();
           request.onerror = () => reject(request.error || new Error("Falha ao salvar mapa linear da linha."));

@@ -1395,6 +1395,12 @@ function buildLinearMapDom(layout, color) {
     for (const stop of group.stops) {
       const stopEl = document.createElement("span");
       stopEl.className = "linear-map-stop";
+      // classList.toggle(classe, undefined) NAO remove a classe - se
+      // comporta como se o 2o argumento nao tivesse sido passado (alterna em
+      // vez de forcar), entao precisa ser um boolean de verdade aqui (ex:
+      // stop.isTerminal ausente num cache antigo, de antes desse campo
+      // existir, marcaria TODA parada como terminal em vez de nenhuma).
+      stopEl.classList.toggle("linear-map-stop--terminal", Boolean(stop.isTerminal));
       stopEl.style.left = `${(stop.alongM / group.lengthM) * 100}%`;
       stopEl.title = stop.nome;
       trackEl.appendChild(stopEl);

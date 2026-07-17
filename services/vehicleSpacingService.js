@@ -5,8 +5,19 @@ import { lineLinearLayoutRepository } from "./lineLinearLayoutRepository.js";
 const EARTH_RADIUS_M = 6371000;
 const LINE_LINEAR_LAYOUT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
-function isLinearLayoutCacheFresh(cachedAt, now) {
-  return typeof cachedAt === "number" && now - cachedAt < LINE_LINEAR_LAYOUT_CACHE_TTL_MS;
+// Incrementa sempre que o FORMATO dos dados cacheados mudar (ex: um novo
+// campo por parada, uma mudanca em como o nome e limpo) - sem isso, uma
+// linha que ja tinha cache de antes da mudanca continuaria servindo o
+// formato antigo por ate 24h (o TTL sozinho so cobre a linha ficar
+// desatualizada pelo tempo, nao o CODIGO de derivacao ter mudado).
+const LINE_LINEAR_LAYOUT_CACHE_VERSION = 2;
+
+function isLinearLayoutCacheFresh(cached, now) {
+  return (
+    typeof cached?.cachedAt === "number" &&
+    now - cached.cachedAt < LINE_LINEAR_LAYOUT_CACHE_TTL_MS &&
+    cached.version === LINE_LINEAR_LAYOUT_CACHE_VERSION
+  );
 }
 
 function toRadians(degrees) {
@@ -164,6 +175,25 @@ function extractShapes(geoJson) {
   return shapes;
 }
 
+// O nome da parada no geoJson costuma vir com as OUTRAS linhas que passam
+// por ela grudadas no fim (ex: "Terminal Cabral - 250 - Ligeirão Norte/Sul
+// - 203-Santa Cândida/Capão Raso"), porque e o mesmo nome usado na base da
+// URBS pra listar todas as linhas daquele ponto - nao faz sentido pra um
+// tooltip que ja esta no contexto de UMA linha especifica. O padrao comum e
+// " - <codigo da linha><resto>", entao corta a partir da primeira ocorrencia
+// de um traco seguido de algo que parece codigo de linha (ate 2 letras +
+// 2-3 digitos, ex: "203", "022", "X36") - nomes sem esse padrao (raros, ex:
+// "Praça Rui Barbosa - (Embarque) ...") ficam como estao.
+const LINE_REFERENCE_IN_STOP_NAME_REGEX = /\s*-\s*[A-Za-z]{0,2}\d{2,3}\b.*$/;
+
+function cleanStopName(nome) {
+  if (!nome) {
+    return nome;
+  }
+
+  return nome.replace(LINE_REFERENCE_IN_STOP_NAME_REGEX, "").trim();
+}
+
 function extractStopsBySentido(geoJson) {
   const stopsBySentido = new Map();
 
@@ -173,7 +203,7 @@ function extractStopsBySentido(geoJson) {
     }
 
     const sentido = feature.properties?.sentido ?? "";
-    const nome = feature.properties?.nome ?? "";
+    const nome = cleanStopName(feature.properties?.nome ?? "");
     const [lon, lat] = feature.geometry.coordinates;
 
     if (!stopsBySentido.has(sentido)) {
@@ -269,6 +299,7 @@ function resolveStopsForShape(stopsBySentido, shape) {
     .map((point) => ({
       nome: point.nome,
       alongM: round(projectPointOntoPolyline(shape.coords, point.lat, point.lon).alongM, 1),
+      isTerminal: point.nome.startsWith("Terminal"),
     }))
     .sort((a, b) => a.alongM - b.alongM);
 }
@@ -334,7 +365,7 @@ function serializeGroupsForCache(groups) {
  *
  * @param {string} lineCode
  * @param {{sent: string, lat: number, lon: number}[]} vehicleSnapshot
- * @returns {Promise<{lineCode: string, groups: Map<string, {shapeId: string|null, coords: number[][], lengthM: number, isLoop: boolean, stops: {nome:string, alongM:number}[]}>} | null>}
+ * @returns {Promise<{lineCode: string, groups: Map<string, {shapeId: string|null, coords: number[][], lengthM: number, isLoop: boolean, stops: {nome:string, alongM:number, isTerminal:boolean}[]}>} | null>}
  */
 export async function buildLineLinearLayout(lineCode, vehicleSnapshot, now = Date.now()) {
   const geoJson = await getLineGeoJson(lineCode);
@@ -345,7 +376,7 @@ export async function buildLineLinearLayout(lineCode, vehicleSnapshot, now = Dat
   }
 
   const cached = await lineLinearLayoutRepository.get(lineCode);
-  if (cached && isLinearLayoutCacheFresh(cached.cachedAt, now)) {
+  if (isLinearLayoutCacheFresh(cached, now)) {
     const groups = hydrateGroupsFromCache(cached.groups, shapes);
     if (groups.size > 0) {
       return { lineCode, groups };
@@ -378,7 +409,7 @@ export async function buildLineLinearLayout(lineCode, vehicleSnapshot, now = Dat
     // nome, alongM = lengthM), pra deixar visualmente claro no mapa linear
     // que o final do trajeto fecha o loop de volta pra ela.
     if (shape.isLoop && stops.length > 0) {
-      stops.push({ nome: stops[0].nome, alongM: lengthM });
+      stops.push({ nome: stops[0].nome, alongM: lengthM, isTerminal: stops[0].isTerminal });
     }
 
     groups.set(sent, {
@@ -394,7 +425,7 @@ export async function buildLineLinearLayout(lineCode, vehicleSnapshot, now = Dat
     return null;
   }
 
-  await lineLinearLayoutRepository.set(lineCode, serializeGroupsForCache(groups), now);
+  await lineLinearLayoutRepository.set(lineCode, serializeGroupsForCache(groups), LINE_LINEAR_LAYOUT_CACHE_VERSION, now);
 
   return { lineCode, groups };
 }
