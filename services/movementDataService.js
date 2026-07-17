@@ -83,7 +83,7 @@ function round(value, decimals) {
   return Math.round(value * factor) / factor;
 }
 
-function haversineDistanceM(lat1, lon1, lat2, lon2) {
+export function haversineDistanceM(lat1, lon1, lat2, lon2) {
   const dLat = toRadians(lat2 - lat1);
   const dLon = toRadians(lon2 - lon1);
   const a =

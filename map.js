@@ -12,6 +12,7 @@ import { getVehicleTypeData } from "./services/vehicleTypeDataService.js";
 import { syncDayToCache } from "./services/dataSyncService.js";
 import { getLineGeoJson } from "./services/lineGeoJsonService.js";
 import { getLineRouteColor } from "./services/lineColorService.js";
+import { buildLineLinearLayout, computeSpacing, projectPointOntoPolyline } from "./services/vehicleSpacingService.js";
 import {
   buildTooltipHtml,
   computeFilteredCods,
@@ -112,6 +113,7 @@ const ui = {
   pipPlayPauseBtn: document.querySelector("#pipPlayPauseBtn"),
   mapPipPlaceholder: document.querySelector("#mapPipPlaceholder"),
   returnFromPipBtn: document.querySelector("#returnFromPipBtn"),
+  lineLinearMap: document.querySelector("#lineLinearMap"),
 };
 
 const state = {
@@ -140,6 +142,9 @@ const state = {
   lineColorCache: new Map(),
   operationWindowMarksToken: 0,
   lastRouteLineCode: undefined,
+  lastLinearMapLineCode: undefined,
+  linearMapToken: 0,
+  linearMapLayout: null,
 };
 
 function setStatus(message) {
@@ -574,6 +579,7 @@ function setPinnedVehicle(cod) {
   renderOperationWindowMarks();
   updateNextOperationButton();
   scheduleLineRouteUpdate();
+  scheduleLinearMapUpdate();
 }
 
 function togglePinnedVehicle(cod) {
@@ -692,6 +698,8 @@ function renderFrame(t) {
   ui.pipTimeLabel.textContent = formatClock(t);
   updateNextOperationButton();
   scheduleLineRouteUpdate();
+  scheduleLinearMapUpdate();
+  renderLinearMapVehicles();
 
   const suffix = state.filteredCods ? ` de ${state.visibleCods.length} filtrado(s)` : "";
   setStatus(
@@ -1222,6 +1230,347 @@ function scheduleLineRouteUpdate() {
 }
 
 /**
+ * Resolve qual linha deve ter o mapa linear (espacamento dos veiculos por
+ * sentido, abaixo do mapa) exibido. Mais restrito que resolveRouteLineCode:
+ * so quando o filtro atual e por linha, ou quando ha um veiculo fixado (pin)
+ * dentro de uma janela de operacao agora - ao contrario do trajeto no mapa,
+ * NAO aparece so por um prefixo completo casar com um unico veiculo (se ele
+ * estiver fora de operacao no instante atual, o box fica oculto).
+ */
+function resolveLinearMapLineCode() {
+  const currentBlock = findCurrentOperationBlock();
+  if (currentBlock) {
+    return currentBlock.codigolinha;
+  }
+
+  const filter = state.filterInfo;
+  if (filter?.field === "linha") {
+    return filter.value;
+  }
+
+  return null;
+}
+
+/**
+ * Posicao (lat/lon/sentido/velocidade) de cada veiculo atualmente na linha
+ * informada, no instante atual - usado tanto pra resolver o layout (ver
+ * buildLineLinearLayout) quanto, a cada frame, pra reposicionar os icones.
+ *
+ * Veiculos sem sentido definido (SENT vazio - comum logo na saida da
+ * garagem, antes da URBS atribuir um sentido) ficam de fora: sem sentido
+ * nao da pra saber em qual traçado/shape projetar o veiculo, entao ele
+ * simplesmente nao aparece no mapa linear ate a URBS atribuir um sentido.
+ */
+function getCurrentLineVehiclePoints(lineCode) {
+  if (!state.track || state.currentTime === null) {
+    return [];
+  }
+
+  const points = [];
+
+  for (const cod of Object.keys(state.track.vehicles)) {
+    const frames = state.extendedVehicleFrames.get(cod) ?? state.track.vehicles[cod];
+    const point = getInterpolatedPoint(frames, state.currentTime, MOVEMENT_MAX_GAP_MS);
+
+    if (!point || point.codigolinha !== lineCode || !point.sent) {
+      continue;
+    }
+
+    points.push({ cod, lat: point.lat, lon: point.lon, sent: point.sent, speedKmh: point.velocidadeMediaKmh });
+  }
+
+  return points;
+}
+
+/**
+ * Todos os pontos (lat/lon/sentido) que a linha teve ao longo do dia inteiro
+ * ja carregado, juntando os quadros de todos os veiculos que passaram por
+ * ela em qualquer instante - usado so pra RESOLVER o layout do mapa linear
+ * (ver buildLineLinearLayout), nunca pra renderizar posicao atual.
+ *
+ * Usar o dia inteiro em vez de um instante (que e o que getCurrentLineVehiclePoints
+ * da) evita que um sentido fique sem grupo resolvido so porque, no momento
+ * em que o filtro foi aplicado, nao havia (ou nao existia mais) nenhum
+ * veiculo naquele sentido - o mapa linear ficaria sem aparecer (ou faltando
+ * uma das barras) ate o filtro mudar de novo, o que pode nunca acontecer.
+ */
+function getAllDayLineVehiclePoints(lineCode) {
+  if (!state.track) {
+    return [];
+  }
+
+  const points = [];
+
+  for (const cod of Object.keys(state.track.vehicles)) {
+    const frames = state.extendedVehicleFrames.get(cod) ?? state.track.vehicles[cod];
+
+    for (const frame of frames) {
+      if (frame.codigolinha === lineCode && frame.sent) {
+        points.push({ lat: frame.lat, lon: frame.lon, sent: frame.sent });
+      }
+    }
+  }
+
+  return points;
+}
+
+function clearLinearMap() {
+  state.linearMapLayout = null;
+  ui.lineLinearMap.classList.add("hidden");
+  ui.lineLinearMap.setAttribute("aria-hidden", "true");
+  ui.lineLinearMap.innerHTML = "";
+}
+
+const LINEAR_MAP_SENT_ORDER = { IDA: 0, VOLTA: 1 };
+
+function linearMapSentSortKey(sent) {
+  return LINEAR_MAP_SENT_ORDER[sent] ?? 2;
+}
+
+function formatDurationShort(totalSeconds) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = Math.round(totalSeconds % 60);
+  return minutes > 0 ? `${minutes}min${seconds}s` : `${seconds}s`;
+}
+
+function formatGapLabel(gapToPreviousM, gapToPreviousS) {
+  const distanceLabel = gapToPreviousM >= 1000 ? `${(gapToPreviousM / 1000).toFixed(1)}km` : `${Math.round(gapToPreviousM)}m`;
+  const timeLabel = gapToPreviousS === null ? "" : ` (~${formatDurationShort(gapToPreviousS)})`;
+  return `${distanceLabel}${timeLabel}`;
+}
+
+/**
+ * Monta a estrutura estatica do mapa linear (uma linha por sentido, com o
+ * trilho e as paradas ja posicionadas) - chamada so quando o layout muda
+ * (linha diferente), nao a cada frame. As posicoes dos veiculos sao
+ * preenchidas depois, por renderLinearMapVehicles.
+ */
+function buildLinearMapDom(layout, color) {
+  ui.lineLinearMap.innerHTML = "";
+  ui.lineLinearMap.style.setProperty("--line-color", color);
+
+  const sortedEntries = [...layout.groups.entries()].sort(
+    (a, b) => linearMapSentSortKey(a[0]) - linearMapSentSortKey(b[0]) || a[0].localeCompare(b[0])
+  );
+
+  for (const [, group] of sortedEntries) {
+    const trackEl = document.createElement("div");
+    trackEl.className = "linear-map-track";
+
+    const railEl = document.createElement("div");
+    railEl.className = "linear-map-rail";
+    trackEl.appendChild(railEl);
+
+    for (const stop of group.stops) {
+      const stopEl = document.createElement("span");
+      stopEl.className = "linear-map-stop";
+      stopEl.style.left = `${(stop.alongM / group.lengthM) * 100}%`;
+      stopEl.title = stop.nome;
+      trackEl.appendChild(stopEl);
+    }
+
+    const vehiclesLayerEl = document.createElement("div");
+    vehiclesLayerEl.className = "linear-map-vehicles-layer";
+    trackEl.appendChild(vehiclesLayerEl);
+
+    const rowEl = document.createElement("div");
+    rowEl.className = "linear-map-row";
+
+    // SENT vem vazio nos veiculos ainda saindo da garagem (antes da URBS
+    // atribuir um sentido) - "N/D" deixa claro que e um estado transitorio
+    // dos dados, e nao uma falha de renderizacao (ex: um traco solto "—").
+    const labelEl = document.createElement("span");
+    labelEl.className = "linear-map-row-label";
+    labelEl.textContent = group.sent || "N/D";
+    rowEl.appendChild(labelEl);
+    rowEl.appendChild(trackEl);
+
+    ui.lineLinearMap.appendChild(rowEl);
+
+    group.vehiclesLayerEl = vehiclesLayerEl;
+    group.vehicleEls = new Map();
+  }
+}
+
+// O traçado (geoJson) e uma referencia simplificada da rota - em alguns
+// trechos (ex: um desvio pra servir um terminal) o veiculo se afasta dele,
+// e o ponto mais proximo no traçado pode "recuar" por alguns quadros ate o
+// veiculo voltar a se aproximar do traçado cadastrado. Sem suavizacao isso
+// aparece no mapa linear como o onibus andando pra tras. Regressoes
+// pequenas/medias (ate esse limite) ficam "paradas" na ultima posicao boa
+// em vez de recuar; regressoes maiores (linha circular fechando o loop,
+// veiculo iniciando uma nova viagem) sao grandes demais pra serem esse
+// efeito e continuam sendo aplicadas normalmente.
+const LINEAR_MAP_BACKWARD_JITTER_TOLERANCE_M = 700;
+
+function smoothLinearMapAlongM(previousAlongM, rawAlongM) {
+  if (previousAlongM === null) {
+    return rawAlongM;
+  }
+
+  const regressionM = previousAlongM - rawAlongM;
+  const isSmallBackwardRegression = regressionM > 0 && regressionM <= LINEAR_MAP_BACKWARD_JITTER_TOLERANCE_M;
+
+  return isSmallBackwardRegression ? previousAlongM : rawAlongM;
+}
+
+/**
+ * Chamada a cada frame (ver renderFrame): reposiciona os icones de onibus
+ * dentro do mapa linear ja montado (ver buildLinearMapDom), sem rebuscar
+ * geoJson - so reprojeta as posicoes atuais dos veiculos nos shapes ja
+ * resolvidos e recalcula o espacamento (ambos sincronos e baratos).
+ */
+function renderLinearMapVehicles() {
+  const layout = state.linearMapLayout;
+  if (!layout) {
+    return;
+  }
+
+  const pointsBySent = new Map();
+  for (const point of getCurrentLineVehiclePoints(layout.lineCode)) {
+    const sent = point.sent || "";
+    if (!pointsBySent.has(sent)) {
+      pointsBySent.set(sent, []);
+    }
+    pointsBySent.get(sent).push(point);
+  }
+
+  for (const group of layout.groups.values()) {
+    if (!group.lastAlongMByCod) {
+      group.lastAlongMByCod = new Map();
+    }
+
+    const points = pointsBySent.get(group.sent) ?? [];
+    const projected = points.map((point) => {
+      const raw = projectPointOntoPolyline(group.coords, point.lat, point.lon);
+      const previousAlongM = group.lastAlongMByCod.get(point.cod) ?? null;
+      const alongM = smoothLinearMapAlongM(previousAlongM, raw.alongM);
+      group.lastAlongMByCod.set(point.cod, alongM);
+
+      return { cod: point.cod, speedKmh: point.speedKmh, alongM, perpM: raw.perpM };
+    });
+
+    const spaced = computeSpacing(projected, group.lengthM, group.isLoop);
+    const seenCods = new Set();
+
+    for (const entry of spaced) {
+      seenCods.add(entry.cod);
+      let el = group.vehicleEls.get(entry.cod);
+
+      if (!el) {
+        el = document.createElement("div");
+        el.className = "linear-map-vehicle";
+
+        const codEl = document.createElement("span");
+        codEl.className = "linear-map-vehicle-cod";
+
+        const iconEl = document.createElement("span");
+        iconEl.className = "linear-map-vehicle-icon";
+        iconEl.textContent = "🚌";
+
+        el.appendChild(codEl);
+        el.appendChild(iconEl);
+        // Clicar no veiculo no mapa linear fixa/desfixa ele igual clicar no
+        // marcador no mapa - mesmo togglePinnedVehicle, que ja abre o
+        // tooltip e centraliza o mapa nele (ver setPinnedVehicle).
+        el.addEventListener("click", () => togglePinnedVehicle(entry.cod));
+        group.vehiclesLayerEl.appendChild(el);
+        group.vehicleEls.set(entry.cod, el);
+      }
+
+      el.style.left = `${(entry.alongM / group.lengthM) * 100}%`;
+      el.classList.toggle("linear-map-vehicle--pinned", entry.cod === state.pinnedCod);
+      el.querySelector(".linear-map-vehicle-cod").textContent = entry.cod;
+      el.title =
+        entry.gapToPreviousM === null
+          ? entry.cod
+          : `${entry.cod} · ${formatGapLabel(entry.gapToPreviousM, entry.gapToPreviousS)} do veículo da frente`;
+    }
+
+    for (const [cod, el] of group.vehicleEls) {
+      if (!seenCods.has(cod)) {
+        el.remove();
+        group.vehicleEls.delete(cod);
+      }
+    }
+
+    for (const cod of group.lastAlongMByCod.keys()) {
+      if (!seenCods.has(cod)) {
+        group.lastAlongMByCod.delete(cod);
+      }
+    }
+  }
+}
+
+let linearMapDebounceTimer = null;
+
+async function updateLinearMap(lineCode) {
+  const requestToken = state.linearMapToken;
+  const snapshot = getAllDayLineVehiclePoints(lineCode);
+
+  try {
+    const [layout, lineRecord] = await Promise.all([buildLineLinearLayout(lineCode, snapshot), getByCod(lineCode)]);
+
+    if (requestToken !== state.linearMapToken) {
+      return;
+    }
+
+    if (!layout) {
+      clearLinearMap();
+      return;
+    }
+
+    for (const [sent, group] of layout.groups) {
+      group.sent = sent;
+    }
+
+    state.linearMapLayout = layout;
+    buildLinearMapDom(layout, getLineRouteColor(lineRecord));
+    ui.lineLinearMap.classList.remove("hidden");
+    ui.lineLinearMap.removeAttribute("aria-hidden");
+    renderLinearMapVehicles();
+  } catch (error) {
+    if (requestToken !== state.linearMapToken) {
+      return;
+    }
+
+    clearLinearMap();
+    console.error("Falha ao montar mapa linear da linha:", error);
+  }
+}
+
+/**
+ * Chamada a cada frame (junto de scheduleLineRouteUpdate) e nas mudancas de
+ * filtro/data - so refaz o layout (busca geoJson) quando a linha resolvida
+ * muda, mesmo padrao de debounce/token de scheduleLineRouteUpdate.
+ */
+function scheduleLinearMapUpdate() {
+  const lineCode = resolveLinearMapLineCode();
+
+  if (lineCode === state.lastLinearMapLineCode) {
+    return;
+  }
+  state.lastLinearMapLineCode = lineCode;
+
+  if (linearMapDebounceTimer !== null) {
+    clearTimeout(linearMapDebounceTimer);
+    linearMapDebounceTimer = null;
+  }
+
+  state.linearMapToken += 1;
+
+  if (!lineCode) {
+    clearLinearMap();
+    return;
+  }
+
+  linearMapDebounceTimer = setTimeout(() => {
+    linearMapDebounceTimer = null;
+    updateLinearMap(lineCode);
+  }, LINE_ROUTE_DEBOUNCE_MS);
+}
+
+/**
  * Recalcula as janelas de operacao considerando os dados de fronteira do dia
  * anterior/seguinte (virada da meia-noite). E assincrono (busca/sincroniza
  * esses dados em segundo plano) e por isso e chamado com debounce a partir
@@ -1323,6 +1672,7 @@ function applyFilter() {
 
   recomputeVisibleCods();
   scheduleLineRouteUpdate();
+  scheduleLinearMapUpdate();
   scheduleOperationWindowsRefinement();
   renderLineEntryMark(state.track, state.operationWindows);
   renderOperationWindowMarks();
@@ -1350,6 +1700,8 @@ async function loadDate(dateKey, options = {}) {
   renderLineEntryMark(null, null);
   renderOperationWindowMarks();
   updateNextOperationButton();
+  state.lastLinearMapLineCode = undefined;
+  clearLinearMap();
 
   const syncToken = ++state.syncToken;
   const isCancelled = () => state.syncToken !== syncToken;
@@ -1439,6 +1791,7 @@ async function loadDate(dateKey, options = {}) {
     renderFrame(state.currentTime);
     updateSeekUi();
     scheduleLineRouteUpdate();
+    scheduleLinearMapUpdate();
     scheduleOperationWindowsRefinement();
     updateRecenterLineBadge();
     maybeZoomToPrefixMatch();
