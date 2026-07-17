@@ -325,23 +325,36 @@ export function computeFirstLineEntryTime(operationWindows) {
   return earliest;
 }
 
-const TECH_ICON_DEFS = {
-  "Elétrico": {
-    className: "vehicle-tech-icon--electric",
-    title: "Elétrico",
-    svg: '<path d="M11 21h-1l1-7H7.5c-.88 0-.33-.75-.31-.78C8.48 10.94 10.42 7.54 13.01 3h1l-1 7h3.51c.4 0 .62.19.4.66C12.97 17.55 11 21 11 21z"/>',
-  },
-  Biodiesel: {
-    className: "vehicle-tech-icon--leaf",
-    title: "Biodiesel",
-    svg: '<path d="M17 8C8 10 5.9 16.17 3.82 21.34l1.89.66.95-2.3c.48.17.98.3 1.34.3C19 20 22 3 22 3c-1 2-8 2.25-13 3.25S2 11.5 2 13.5s1.75 3.75 1.75 3.75C7 8 17 8 17 8z"/>',
-  },
-  "Híbrido": {
-    className: "vehicle-tech-icon--leaf",
-    title: "Híbrido",
-    svg: '<path d="M17 8C8 10 5.9 16.17 3.82 21.34l1.89.66.95-2.3c.48.17.98.3 1.34.3C19 20 22 3 22 3c-1 2-8 2.25-13 3.25S2 11.5 2 13.5s1.75 3.75 1.75 3.75C7 8 17 8 17 8z"/>',
-  },
-};
+const ICON_SPRITE_PATH = "icons/icons.svg";
+const TECH_ICON_SLUGS = new Set(["eletrico", "biodiesel", "hibrido"]);
+
+let iconSpriteLoaded = null;
+
+export function loadIconSprite() {
+  if (!iconSpriteLoaded) {
+    iconSpriteLoaded = fetch(ICON_SPRITE_PATH)
+      .then((response) => response.text())
+      .then((markup) => {
+        const container = document.createElement("div");
+        // "hidden" (display:none) impede o Chrome de resolver gradientes
+        // (fill:url(#...)) em conteudo referenciado via <use> a partir daqui,
+        // mesmo que cores solidas e clip-path funcionem normalmente - por
+        // isso o container fica com tamanho zero em vez de display:none.
+        container.style.cssText = "position:absolute;width:0;height:0;overflow:hidden";
+        container.innerHTML = markup;
+        document.body.appendChild(container);
+      });
+  }
+
+  return iconSpriteLoaded;
+}
+
+function techIconSlug(tech) {
+  return tech
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
 
 function buildVehicleTypeIconsHtml(vehicleType) {
   if (!vehicleType) {
@@ -349,16 +362,16 @@ function buildVehicleTypeIconsHtml(vehicleType) {
   }
 
   const badgeHtml = vehicleType.icone
-    ? `<span class="vehicle-type-badge" title="${escapeHtml(vehicleType.nome)}">${escapeHtml(vehicleType.icone)}</span>`
+    ? `<span class="vehicle-type-badge" title="${escapeHtml(vehicleType.nome)}"><svg><use href="#vehicle-type-badge-${vehicleType.icone}"></use></svg></span>`
     : "";
 
   const seenTech = new Set();
   const techHtml = (vehicleType.tecnologia || [])
-    .map((tech) => TECH_ICON_DEFS[tech])
-    .filter((def) => def && !seenTech.has(def.className) && seenTech.add(def.className))
+    .map((tech) => ({ tech, slug: techIconSlug(tech) }))
+    .filter(({ slug }) => TECH_ICON_SLUGS.has(slug) && !seenTech.has(slug) && seenTech.add(slug))
     .map(
-      (def) =>
-        `<span class="vehicle-tech-icon ${def.className}" title="${escapeHtml(def.title)}"><svg viewBox="0 0 24 24">${def.svg}</svg></span>`
+      ({ tech, slug }) =>
+        `<span class="vehicle-tech-icon vehicle-tech-icon--${slug}" title="${escapeHtml(tech)}"><svg><use href="#vehicle-tech-icon-${slug}"></use></svg></span>`
     )
     .join("");
 

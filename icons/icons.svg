@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="vehicle-tech-icon-hibrido-bg" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" style="stop-color:var(--tech-icon-bg-start, #92400e)" />
+      <stop offset="1" style="stop-color:var(--tech-icon-bg-end, #14532d)" />
+    </linearGradient>
+  </defs>
+
+  <symbol id="vehicle-type-badge-S" viewBox="372.004 1.588 49.742 49.742">
+    <g transform="translate(277.10474,-198.20658)">
+      <circle cx="119.77029" cy="224.66492" r="24.870834" style="fill:none;stroke:#000;stroke-width:3.175" />
+      <text x="106.54435" y="238.32687" style="font-family:arial;font-size:39.6875px;fill:#000;stroke:#000;stroke-width:3.175">S</text>
+    </g>
+  </symbol>
+
+  <symbol id="vehicle-type-badge-ME" viewBox="319.088 1.588 49.742 49.742">
+    <g transform="translate(305.30548,-200.99898)">
+      <circle cx="38.652874" cy="227.45732" r="24.870834" style="fill:none;stroke:#000;stroke-width:3.175" />
+      <text x="17.274372" y="237.01389" style="font-family:arial;font-size:27.7812px;fill:#000;stroke:#000;stroke-width:3.175">ME</text>
+    </g>
+  </symbol>
+
+  <symbol id="vehicle-type-badge-M" viewBox="266.171 1.588 49.742 49.742">
+    <g transform="translate(174.5811,-134.80866)">
+      <circle cx="116.46059" cy="161.267" r="24.870834" style="fill:none;stroke:#000;stroke-width:3.175" />
+      <text x="99.930588" y="174.91927" style="font-family:arial;font-size:39.6875px;fill:#000;stroke:#000;stroke-width:3.175">M</text>
+    </g>
+  </symbol>
+
+  <symbol id="vehicle-type-badge-B" viewBox="213.254 1.588 49.742 49.742">
+    <g transform="translate(204.00006,-137.16005)">
+      <circle cx="34.124954" cy="163.61839" r="24.870834" style="fill:none;stroke:#000;stroke-width:3.175" />
+      <text x="22.424637" y="177.27066" style="font-family:arial;font-size:39.6875px;fill:#000;stroke:#000;stroke-width:3.175">B</text>
+    </g>
+  </symbol>
+
+  <symbol id="vehicle-type-badge-A" viewBox="160.338 1.588 49.742 49.742">
+    <g transform="translate(72.410529,-68.416138)">
+      <circle cx="112.79781" cy="94.874474" r="24.870834" style="fill:none;stroke:#000;stroke-width:3.175" />
+      <text x="99.562187" y="108.52674" style="font-family:arial;font-size:39.6875px;fill:#000;stroke:#000;stroke-width:3.175">A</text>
+    </g>
+  </symbol>
+
+  <symbol id="vehicle-type-badge-P" viewBox="107.421 1.588 49.742 49.742">
+    <g transform="translate(98.16672,-73.321144)">
+      <circle cx="34.124954" cy="99.77948" r="24.870834" style="fill:none;stroke:#000;stroke-width:3.175" />
+      <text x="22.424637" y="113.43175" style="font-family:arial;font-size:39.6875px;fill:#000;stroke:#000;stroke-width:3.175">P</text>
+    </g>
+  </symbol>
+
+  <symbol id="vehicle-type-badge-SP" viewBox="54.504 1.588 49.742 49.742">
+    <g transform="translate(-31.49355,-6.3487388)">
+      <circle cx="110.86855" cy="32.807076" r="24.870834" style="fill:none;stroke:#000;stroke-width:3.175" />
+      <text x="89.807823" y="43.736641" style="font-family:arial;font-size:31.75px;fill:#000;stroke:#000;stroke-width:3.175">SP</text>
+    </g>
+  </symbol>
+
+  <symbol id="vehicle-type-badge-C" viewBox="1.588 1.588 49.742 49.742">
+    <g transform="translate(-7.6666199,-9.4822227)">
+      <circle cx="34.124954" cy="35.940559" r="24.870834" style="fill:none;stroke:#000;stroke-width:3.175" />
+      <text x="19.542511" y="49.602516" style="font-family:arial;font-size:39.6875px;fill:#000;stroke:#000;stroke-width:3.175">C</text>
+    </g>
+  </symbol>
+
+  <symbol id="vehicle-tech-icon-eletrico" viewBox="107.421 54.504 49.742 49.742">
+    <g transform="translate(-36.724327,-142.61718)">
+      <circle cx="169.01599" cy="221.99219" r="24.870832" style="fill:var(--tech-icon-bg, #ccc);stroke:var(--tech-icon-bg, #ccc);stroke-width:3.175" />
+      <path d="m 166.71631,242.59517 h -2.28927 l 2.28927,-16.02454 h -8.01234 c -2.01448,0 -0.75534,-1.71692 -0.70949,-1.78559 2.95316,-5.21943 7.39424,-13.00278 13.32331,-23.39584 h 2.2892 l -2.2892,16.02454 h 8.03519 c 0.91566,0 1.4193,0.43494 0.91566,1.51089 -9.04239,15.77273 -13.55216,23.67054 -13.55216,23.67054 z" style="fill:var(--tech-icon-fg, #000)" />
+    </g>
+  </symbol>
+
+  <symbol id="vehicle-tech-icon-biodiesel" viewBox="1.588 54.504 49.742 49.742">
+    <g transform="translate(-6.2114121,-10.937435)">
+      <circle cx="32.669746" cy="90.312439" r="24.870832" style="fill:var(--tech-icon-bg, #ccc);stroke:var(--tech-icon-bg, #ccc);stroke-width:3.175" />
+      <path d="m 41.373166,82.479406 c -15.66612,3.48135 -19.32157,14.221346 -22.94216,23.220634 l 3.28987,1.14885 1.65362,-4.00355 c 0.83552,0.29592 1.70591,0.52217 2.33255,0.52217 19.14743,0 24.36946,-29.591527 24.36946,-29.591527 -1.74067,3.481358 -13.92539,3.916522 -22.62879,5.657206 -8.70342,1.740677 -12.18473,9.138557 -12.18473,12.619903 0,3.48138 3.04617,6.52754 3.04617,6.52754 5.65718,-16.101256 23.06401,-16.101256 23.06401,-16.101256 z" style="fill:var(--tech-icon-fg, #000)" />
+    </g>
+  </symbol>
+
+  <symbol id="vehicle-tech-icon-hibrido" viewBox="160.338 54.504 49.742 49.742">
+    <g transform="translate(8.0265809e-7,-0.27062238)">
+      <circle cx="185.20833" cy="79.64563" r="24.870832" style="fill:url(#vehicle-tech-icon-hibrido-bg);stroke:url(#vehicle-tech-icon-hibrido-bg);stroke-width:3.175" />
+      <path d="M 131.77858 138.02486 L 131.77858 177.71236 C 127.24758 177.71236 123.46899 176.15793 120.44284 173.04908 C 117.41663 169.94023 115.90358 166.07069 115.90358 161.44049 C 115.90358 158.1332 117.21822 154.53651 119.84753 150.65045 C 122.47682 146.76439 126.45383 142.55586 131.77858 138.02486 z M 120.84747 162.89621 C 120.38447 162.89621 120.0041 163.07014 119.70645 163.41763 C 119.40895 163.76463 119.30979 164.16976 119.40879 164.63306 C 119.97104 167.64272 121.29395 169.79248 123.37754 171.08228 C 125.46115 172.37212 127.56129 172.95091 129.67793 172.81861 L 129.67845 172.81757 C 130.07545 172.78257 130.41444 172.6258 130.69544 172.3468 C 130.97644 172.0658 131.11712 171.72681 131.11712 171.32981 C 131.11712 170.86681 130.96814 170.49475 130.67064 170.2136 C 130.37314 169.9326 129.99277 169.80853 129.52962 169.84153 C 128.17362 169.94053 126.73497 169.56845 125.21361 168.72532 C 123.69226 167.88196 122.73316 166.35234 122.33626 164.13645 C 122.27026 163.77245 122.09635 163.47479 121.81485 163.24348 C 121.53385 163.01199 121.21142 162.89621 120.84747 162.89621 z" transform="matrix(-1,0,0,1,316.72078,-77.82715)" style="fill:var(--tech-icon-fg-drop, #000)" />
+      <path d="M 140.41525 118.19726 C 134.70468 128.20731 130.42732 135.70419 127.58296 140.73129 C 127.53882 140.79742 126.32589 142.45108 128.26613 142.45108 L 135.98348 142.45108 L 133.77845 157.88476 L 135.98348 157.88476 C 135.98348 157.88476 138.64198 153.23691 142.51125 146.47874 L 142.51125 133.63146 L 140.41525 133.63146 L 142.51125 118.96052 L 142.51125 118.19726 L 140.41525 118.19726 z" transform="translate(42.430948,-57.99955)" style="fill:var(--tech-icon-fg-bolt, #000)" />
+    </g>
+  </symbol>
+</svg>

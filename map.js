@@ -23,6 +23,7 @@ import {
   getMarkerColor,
   hasValidSituacao,
   isOutOfService,
+  loadIconSprite,
   matchesCurrentFilter,
   parseVehicleFilter,
   toDateInputValue,
@@ -1106,7 +1107,7 @@ async function bootstrap() {
   updateDataControlsAvailability();
 
   setStatus("Carregando dados de linhas e tipos de veículo...");
-  await Promise.allSettled([getLineData(), getVehicleTypeData()]);
+  await Promise.allSettled([getLineData(), getVehicleTypeData(), loadIconSprite()]);
   setStatus("Selecione uma data e clique em Carregar para sincronizar e visualizar a movimentação.");
 }
 
