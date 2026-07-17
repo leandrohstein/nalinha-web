@@ -136,6 +136,7 @@ const state = {
   lastAutoJumpedEntryTime: null,
   lineColorCache: new Map(),
   operationWindowMarksToken: 0,
+  lastRouteLineCode: undefined,
 };
 
 function setStatus(message) {
@@ -514,6 +515,7 @@ function togglePinnedVehicle(cod) {
 
   renderOperationWindowMarks();
   updateNextOperationButton();
+  scheduleLineRouteUpdate();
 }
 
 function renderFrame(t) {
@@ -602,6 +604,7 @@ function renderFrame(t) {
 
   ui.pipTimeLabel.textContent = formatClock(t);
   updateNextOperationButton();
+  scheduleLineRouteUpdate();
 
   const suffix = state.filteredCods ? ` de ${state.visibleCods.length} filtrado(s)` : "";
   setStatus(
@@ -758,6 +761,21 @@ async function renderOperationWindowMarks() {
 
     ui.seekOperationWindows.appendChild(blockEl);
   }
+}
+
+/**
+ * Encontra o bloco de servico do veiculo fixado (pin) que contem o instante
+ * atual - usado para exibir automaticamente o trajeto (geoJson) da linha
+ * assim que o veiculo "entra" numa janela de operacao (ver
+ * resolveRouteLineCode).
+ */
+function findCurrentOperationBlock() {
+  if (!state.track || !state.pinnedCod || state.currentTime === null) {
+    return null;
+  }
+
+  const blocks = computeServiceBlocks(state.track.vehicles[state.pinnedCod]);
+  return blocks.find((block) => state.currentTime >= block.start && state.currentTime <= block.end) ?? null;
 }
 
 /**
@@ -975,13 +993,20 @@ function resolveSinglePrefixMatchCod() {
 }
 
 /**
- * Resolve qual codigo de linha deve ter o trajeto (geoJson) exibido no mapa:
- * o valor do proprio filtro quando ele e por linha, ou a linha que o veiculo
- * opera no dia quando o filtro e por um prefixo completo que casa com um
- * unico veiculo (mesmo que no instante atual esse veiculo esteja fora de
- * operacao).
+ * Resolve qual codigo de linha deve ter o trajeto (geoJson) exibido no mapa.
+ * Prioridade: a linha da janela de operacao em que o veiculo fixado (pin)
+ * esta agora (assim que ele "entra" nela, o trajeto aparece; ao sair, some -
+ * ver findCurrentOperationBlock), depois o valor do proprio filtro quando
+ * ele e por linha, e por fim a linha que o veiculo opera no dia quando o
+ * filtro e por um prefixo completo que casa com um unico veiculo (mesmo que
+ * no instante atual esse veiculo esteja fora de operacao).
  */
 function resolveRouteLineCode() {
+  const currentBlock = findCurrentOperationBlock();
+  if (currentBlock) {
+    return currentBlock.codigolinha;
+  }
+
   const filter = state.filterInfo;
 
   if (filter?.field === "linha") {
@@ -1048,7 +1073,21 @@ async function updateLineRoute(lineCode) {
 
 let lineRouteDebounceTimer = null;
 
+/**
+ * Chamada a cada quadro (ver renderFrame) para reagir a entrada/saida do
+ * veiculo fixado numa janela de operacao, alem das mudancas de filtro. Por
+ * isso, se a linha resolvida nao mudou desde a ultima chamada, nao faz
+ * nada - senao o debounce nunca dispararia durante a reproducao, ja que
+ * seria reiniciado a cada quadro antes de completar.
+ */
 function scheduleLineRouteUpdate() {
+  const lineCode = resolveRouteLineCode();
+
+  if (lineCode === state.lastRouteLineCode) {
+    return;
+  }
+  state.lastRouteLineCode = lineCode;
+
   if (lineRouteDebounceTimer !== null) {
     clearTimeout(lineRouteDebounceTimer);
     lineRouteDebounceTimer = null;
@@ -1058,8 +1097,6 @@ function scheduleLineRouteUpdate() {
   // deixou de ter uma linha associada), a resposta pendente nao deve mais
   // ser aplicada.
   state.lineRouteToken += 1;
-
-  const lineCode = resolveRouteLineCode();
 
   if (!lineCode) {
     clearLineRoute();
