@@ -58,6 +58,12 @@ export function getInterpolatedPoint(frames, t, maxGapMs) {
     tabela: ratio < 0.5 ? a.tabela : b.tabela,
     adapt: ratio < 0.5 ? a.adapt : b.adapt,
     stale: ratio < 0.5 ? a.stale : b.stale,
+    // velocidadeMediaKmh e a velocidade do segmento a->b (que e o que esta
+    // sendo percorrido agora), nao interpolada entre a e b - ja
+    // distanciaAcumuladaM e interpolada linearmente pra crescer suavemente
+    // entre os dois quadros.
+    velocidadeMediaKmh: b.velocidadeMediaKmh,
+    distanciaAcumuladaM: a.distanciaAcumuladaM + (b.distanciaAcumuladaM - a.distanciaAcumuladaM) * ratio,
     ratio,
   };
 }
@@ -450,12 +456,18 @@ export function buildTooltipHtml(cod, point, track) {
     ? `<span class="tooltip-situacao"><span class="status-dot ${getSituationDotClass(situacao1)}" aria-hidden="true"></span>${escapeHtml(situacao1)}</span>`
     : "";
 
+  const metricsHtml =
+    Number.isFinite(point.velocidadeMediaKmh) && Number.isFinite(point.distanciaAcumuladaM)
+      ? `${Math.ceil(point.velocidadeMediaKmh)} km/h - ${(point.distanciaAcumuladaM / 1000).toFixed(1)} km`
+      : "";
+
   const lines = [
     headerHtml,
     lineLabel ? escapeHtml(lineLabel) : "",
     situacao1Html,
     situacao2 ? escapeHtml(situacao2) : "",
     point.stale ? "Sem atualização neste minuto" : "",
+    metricsHtml,
   ].filter(Boolean);
 
   return lines.join("<br>");
