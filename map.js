@@ -123,6 +123,7 @@ const state = {
   rafId: null,
   lastFrameWallClock: null,
   markers: new Map(),
+  pinnedCod: null,
   wasPlayingBeforeSeek: false,
   syncToken: 0,
   hideOutOfService: false,
@@ -420,6 +421,41 @@ function clearMarkers() {
   state.markers.clear();
 }
 
+/**
+ * Fixa/desafixa o tooltip do veiculo aberto, independente de hover - o
+ * tooltip permanente continua acompanhando o marcador normalmente conforme
+ * ele se move nos proximos quadros (renderFrame so atualiza o conteudo via
+ * setTooltipContent, sem precisar mexer nesse estado).
+ */
+function setMarkerTooltipPinned(cod, pinned) {
+  const marker = state.markers.get(cod);
+  if (!marker) {
+    return;
+  }
+
+  const content = marker.getTooltip()?.getContent() ?? "";
+  marker.unbindTooltip();
+  marker.bindTooltip(content, { direction: "top", offset: [0, -8], permanent: pinned });
+
+  if (pinned) {
+    marker.openTooltip();
+  }
+}
+
+function togglePinnedVehicle(cod) {
+  const previousPinned = state.pinnedCod;
+  state.pinnedCod = previousPinned === cod ? null : cod;
+
+  if (previousPinned && previousPinned !== state.pinnedCod) {
+    setMarkerTooltipPinned(previousPinned, false);
+  }
+
+  if (state.pinnedCod) {
+    setMarkerTooltipPinned(state.pinnedCod, true);
+    map.setView(state.markers.get(state.pinnedCod).getLatLng(), map.getZoom(), { animate: true });
+  }
+}
+
 function renderFrame(t) {
   const track = state.track;
   if (!track) {
@@ -451,8 +487,13 @@ function renderFrame(t) {
     let marker = state.markers.get(cod);
     if (!marker) {
       marker = L.marker([point.lat, point.lon], { icon: createHexIcon(state.markerSize) }).addTo(markerLayer);
-      marker.bindTooltip("", { direction: "top", offset: [0, -8] });
+      marker.bindTooltip("", { direction: "top", offset: [0, -8], permanent: cod === state.pinnedCod });
+      marker.on("click", () => togglePinnedVehicle(cod));
       state.markers.set(cod, marker);
+
+      if (cod === state.pinnedCod) {
+        marker.openTooltip();
+      }
     } else {
       marker.setLatLng([point.lat, point.lon]);
     }
@@ -470,6 +511,10 @@ function renderFrame(t) {
     markerEl?.classList.toggle("vehicle-hex-marker--stale", Boolean(point.stale));
     marker.setZIndexOffset(belowOtherVehicles ? -1000 : 0);
     marker.setTooltipContent(buildTooltipHtml(cod, point, track));
+
+    if (cod === state.pinnedCod) {
+      map.setView([point.lat, point.lon], map.getZoom(), { animate: false });
+    }
   }
 
   for (const [cod, marker] of state.markers) {
