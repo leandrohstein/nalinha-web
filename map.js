@@ -107,6 +107,7 @@ const ui = {
   nextOperationBtn: null,
   hideOutOfServiceCheckbox: null,
   hideStopPointsCheckbox: null,
+  followVehicleCheckbox: null,
   pipBtn: null,
   pipControls: document.querySelector("#pipControls"),
   pipTimeLabel: document.querySelector("#pipTimeLabel"),
@@ -136,6 +137,7 @@ const state = {
   syncToken: 0,
   hideOutOfService: false,
   hideStopPoints: false,
+  followPinnedVehicle: false,
   markerSize: getMarkerSizeForZoom(DEFAULT_ZOOM),
   lineRouteToken: 0,
   lastAutoJumpedEntryTime: null,
@@ -475,6 +477,11 @@ const MapControls = L.Control.extend({
     this.hideStopPointsCheckbox.type = "checkbox";
     stopPointsCheckboxLabel.appendChild(document.createTextNode("Ocultar pontos de parada"));
 
+    const followVehicleCheckboxLabel = L.DomUtil.create("label", "map-control-checkbox", container);
+    this.followVehicleCheckbox = L.DomUtil.create("input", "", followVehicleCheckboxLabel);
+    this.followVehicleCheckbox.type = "checkbox";
+    followVehicleCheckboxLabel.appendChild(document.createTextNode("Seguir veículo"));
+
     return container;
   },
 });
@@ -483,6 +490,7 @@ const mapControls = new MapControls();
 mapControls.addTo(map);
 ui.hideOutOfServiceCheckbox = mapControls.hideOutOfServiceCheckbox;
 ui.hideStopPointsCheckbox = mapControls.hideStopPointsCheckbox;
+ui.followVehicleCheckbox = mapControls.followVehicleCheckbox;
 
 ui.hideOutOfServiceCheckbox.addEventListener("change", () => {
   state.hideOutOfService = ui.hideOutOfServiceCheckbox.checked;
@@ -497,6 +505,12 @@ ui.hideStopPointsCheckbox.addEventListener("change", () => {
   state.hideStopPoints = ui.hideStopPointsCheckbox.checked;
   trackGaEvent("toggle_hide_stop_points", { hidden: state.hideStopPoints });
   updateRoutePointStyles();
+});
+
+ui.followVehicleCheckbox.addEventListener("change", () => {
+  state.followPinnedVehicle = ui.followVehicleCheckbox.checked;
+  trackGaEvent("toggle_follow_vehicle", { active: state.followPinnedVehicle });
+  centerMapOnPinnedVehicle();
 });
 
 function recomputeVisibleCods() {
@@ -551,6 +565,26 @@ function setMarkerTooltipPinned(cod, pinned) {
 }
 
 /**
+ * Centraliza o mapa no veiculo fixado (pin) agora, se "Seguir veiculo"
+ * estiver ativo - usado tanto ao abrir o tooltip (fixar um veiculo) quanto,
+ * a cada frame, pra continuar seguindo ele enquanto se move (ver renderFrame
+ * e setPinnedVehicle), alem de ao ligar o proprio checkbox com um veiculo ja
+ * fixado.
+ */
+function centerMapOnPinnedVehicle(options = {}) {
+  const { animate = true } = options;
+
+  if (!state.followPinnedVehicle || !state.pinnedCod) {
+    return;
+  }
+
+  const marker = state.markers.get(state.pinnedCod);
+  if (marker) {
+    map.setView(marker.getLatLng(), map.getZoom(), { animate });
+  }
+}
+
+/**
  * Fixa diretamente o veiculo `cod` (ou desfixa, se `cod` for null) - ao
  * contrario de togglePinnedVehicle, nao alterna: fixar o mesmo veiculo que
  * ja esta fixado e um no-op. Usado tanto pelo clique no marcador quanto
@@ -570,10 +604,7 @@ function setPinnedVehicle(cod) {
 
   if (state.pinnedCod) {
     setMarkerTooltipPinned(state.pinnedCod, true);
-    const marker = state.markers.get(state.pinnedCod);
-    if (marker) {
-      map.setView(marker.getLatLng(), map.getZoom(), { animate: true });
-    }
+    centerMapOnPinnedVehicle();
   }
 
   renderOperationWindowMarks();
@@ -684,7 +715,7 @@ function renderFrame(t) {
     }
 
     if (cod === state.pinnedCod) {
-      map.setView([point.lat, point.lon], map.getZoom(), { animate: false });
+      centerMapOnPinnedVehicle({ animate: false });
     }
   }
 
