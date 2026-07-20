@@ -502,10 +502,13 @@ export function buildTooltipHtml(cod, point, track) {
     ? `<span class="tooltip-situacao"><span class="status-dot ${getSituationDotClass(situacao1)}" aria-hidden="true"></span>${escapeHtml(situacao1)}</span>`
     : "";
 
-  const metricsHtml =
-    Number.isFinite(point.velocidadeMediaKmh) && Number.isFinite(point.distanciaAcumuladaM)
-      ? `${Math.ceil(point.velocidadeMediaKmh)} km/h - ${(point.distanciaAcumuladaM / 1000).toFixed(1)} km`
-      : "";
+  const speedLabel = Number.isFinite(point.velocidadeMediaKmh)
+    ? `${Math.ceil(point.velocidadeMediaKmh)} km/h`
+    : "-.- km/h";
+  const distanceLabel = Number.isFinite(point.distanciaAcumuladaM)
+    ? `${(point.distanciaAcumuladaM / 1000).toFixed(1)} km`
+    : "";
+  const metricsHtml = distanceLabel ? `${speedLabel} - ${distanceLabel}` : "";
 
   const lines = [
     headerHtml,

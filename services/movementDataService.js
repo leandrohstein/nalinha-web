@@ -6,6 +6,10 @@ import { syncMinuteRange } from "./dataSyncService.js";
 
 export const MOVEMENT_MAX_GAP_MS = 6 * 60 * 1000;
 
+// Acima disso, a velocidade calculada e considerada inaceitavel (salto de
+// GPS, timestamps quase identicos etc) e o frame fica com velocidade nula.
+const MAX_VALID_SPEED_KMH = 70;
+
 // Janela usada para identificar o turno de um veiculo que atravessa a
 // meia-noite: quanto do dia anterior (a partir de que horario) conta como
 // "ja em operacao" e ate que horario do dia seguinte se considera a
@@ -128,11 +132,12 @@ function annotateMovementMetrics(frames) {
 
     const hoursDiff = (frame.t - previous.t) / 3600000;
     const speedKmh = hoursDiff > 0 ? segmentM / 1000 / hoursDiff : 0;
+    const isValidSpeed = Number.isFinite(speedKmh) && speedKmh >= 0 && speedKmh <= MAX_VALID_SPEED_KMH;
     const bearingDegrees = computeBearingDegrees(previous.lat, previous.lon, frame.lat, frame.lon);
 
     frame.distanciaSegmentoM = round(segmentM, 1);
     frame.distanciaAcumuladaM = round(accumulatedM, 1);
-    frame.velocidadeMediaKmh = round(speedKmh, 1);
+    frame.velocidadeMediaKmh = isValidSpeed ? round(speedKmh, 1) : null;
     frame.bearingGraus = round(bearingDegrees, 1);
   });
 }
