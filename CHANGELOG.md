@@ -2,6 +2,13 @@
 
 Histórico de versões gerado retroativamente a partir do histórico de commits (nenhuma release existia antes desta configuração) e, a partir daqui, mantido automaticamente pelo [release-please](https://github.com/googleapis/release-please).
 
+## [1.2.0](https://github.com/leandrohstein/nalinha-web/compare/v1.1.1...v1.2.0) (2026-08-03)
+
+
+### Funcionalidades
+
+* exibe chip de versão ao lado do título das páginas ([#6](https://github.com/leandrohstein/nalinha-web/issues/6)) ([f817c5b](https://github.com/leandrohstein/nalinha-web/commit/f817c5b6311b2636501fd05e27651a959957611f))
+
 ## [1.1.1](https://github.com/leandrohstein/nalinha-web/compare/v1.1.0...v1.1.1) (2026-07-20)
 
 ### Correções
