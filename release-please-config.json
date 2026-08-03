@@ -10,6 +10,9 @@
         { "type": "fix", "section": "Correções" },
         { "type": "perf", "section": "Performance" },
         { "type": "refactor", "section": "Refatorações" }
+      ],
+      "extra-files": [
+        { "type": "generic", "path": "version.js" }
       ]
     }
   }

@@ -16,6 +16,7 @@ import {
   updatePaginationControls as uiUpdatePaginationControls,
 } from "./ui/nalinhaUi.js";
 import { applySearch } from "./ui/search.js";
+import { APP_VERSION } from "./version.js";
 
 const ui = {
   status: document.querySelector("#status"),
@@ -40,7 +41,10 @@ const ui = {
   historicalDateInput: document.querySelector("#historicalDateInput"),
   cancelHistoricalBtn: document.querySelector("#cancelHistoricalBtn"),
   confirmHistoricalBtn: document.querySelector("#confirmHistoricalBtn"),
+  versionChip: document.querySelector("#versionChip"),
 };
+
+ui.versionChip.textContent = `v${APP_VERSION}`;
 
 const paginationState = {
   rows: [],
