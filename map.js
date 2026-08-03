@@ -32,6 +32,7 @@ import {
   toDateInputValue,
 } from "./ui/movimentacaoUi.js";
 import { escapeHtml } from "./ui/nalinhaUi.js";
+import { APP_VERSION } from "./version.js";
 
 const DEFAULT_CENTER = [-25.4284, -49.2733];
 const DEFAULT_ZOOM = 12;
@@ -115,7 +116,10 @@ const ui = {
   mapPipPlaceholder: document.querySelector("#mapPipPlaceholder"),
   returnFromPipBtn: document.querySelector("#returnFromPipBtn"),
   lineLinearMap: document.querySelector("#lineLinearMap"),
+  versionChip: document.querySelector("#versionChip"),
 };
+
+ui.versionChip.textContent = `v${APP_VERSION}`;
 
 const state = {
   track: null,

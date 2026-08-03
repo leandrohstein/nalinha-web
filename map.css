@@ -104,6 +104,19 @@ body {
   flex-shrink: 0;
 }
 
+.version-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
 .top-bar-right {
   display: flex;
   align-items: center;
