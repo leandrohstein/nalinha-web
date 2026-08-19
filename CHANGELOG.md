@@ -2,6 +2,13 @@
 
 Histórico de versões gerado retroativamente a partir do histórico de commits (nenhuma release existia antes desta configuração) e, a partir daqui, mantido automaticamente pelo [release-please](https://github.com/googleapis/release-please).
 
+## [1.3.0](https://github.com/leandrohstein/nalinha-web/compare/v1.2.0...v1.3.0) (2026-08-19)
+
+
+### Funcionalidades
+
+* desativa temporariamente o serviço durante atualização dos dados ([#9](https://github.com/leandrohstein/nalinha-web/issues/9)) ([ece0ac2](https://github.com/leandrohstein/nalinha-web/commit/ece0ac2c840d4f415bfc23d4bd18b491a52a4b42))
+
 ## [1.2.0](https://github.com/leandrohstein/nalinha-web/compare/v1.1.1...v1.2.0) (2026-08-03)
 
 
