@@ -1,4 +1,5 @@
 import { lineDataRepository } from "./lineDataRepository.js";
+import { assertServiceEnabled } from "./serviceOutage.js";
 
 const LINE_DATA_URL =
   "https://raw.githubusercontent.com/leandrohstein/transporteservico-urbs-data/refs/heads/data/getLinhas.json";
@@ -21,6 +22,7 @@ function isCacheFresh(cachedAt, now = Date.now()) {
 }
 
 async function fetchLineDataFromNetwork() {
+  assertServiceEnabled();
   const response = await fetch(LINE_DATA_URL, { method: "GET" });
 
   if (!response.ok) {

@@ -1,0 +1,30 @@
+/* ── aviso flutuante de serviço temporariamente desativado ── */
+.service-outage-banner {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(560px, 92vw);
+  padding: 12px 18px;
+  background: #fffbeb;
+  border: 1px solid #f59e0b;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(2, 6, 23, 0.15);
+  color: #78350f;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.service-outage-banner__icon {
+  flex-shrink: 0;
+  font-size: 18px;
+}
+
+.service-outage-banner strong {
+  font-weight: 700;
+}

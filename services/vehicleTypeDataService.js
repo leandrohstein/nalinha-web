@@ -1,4 +1,5 @@
 import { vehicleTypeDataRepository } from "./vehicleTypeDataRepository.js";
+import { assertServiceEnabled } from "./serviceOutage.js";
 
 const VEHICLE_TYPE_DATA_URL =
   "https://raw.githubusercontent.com/leandrohstein/transporteservico-urbs-data/refs/heads/data/tipoVeiculos.json";
@@ -21,6 +22,7 @@ function isCacheFresh(cachedAt, now = Date.now()) {
 }
 
 async function fetchVehicleTypeDataFromNetwork() {
+  assertServiceEnabled();
   const response = await fetch(VEHICLE_TYPE_DATA_URL, { method: "GET" });
 
   if (!response.ok) {

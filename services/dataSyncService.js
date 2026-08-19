@@ -1,5 +1,6 @@
 import { cacheRepository } from "./cacheRepository.js";
 import { buildDataUrl, buildDateTimeKey } from "./vehicleDataService.js";
+import { assertServiceEnabled } from "./serviceOutage.js";
 
 function pad2(value) {
   return String(value).padStart(2, "0");
@@ -26,6 +27,7 @@ async function fetchAndCacheMinute(targetDate) {
   const url = buildDataUrl(targetDate);
 
   try {
+    assertServiceEnabled();
     const response = await fetch(url, { method: "GET" });
 
     if (response.status === 404) {
