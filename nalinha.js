@@ -17,6 +17,7 @@ import {
 } from "./ui/nalinhaUi.js";
 import { applySearch } from "./ui/search.js";
 import { APP_VERSION } from "./version.js";
+import { SERVICE_DISABLED } from "./services/serviceOutage.js";
 
 const ui = {
   status: document.querySelector("#status"),
@@ -915,10 +916,19 @@ ui.nextPageBtn.addEventListener("click", async () => {
 });
 
 updatePaginationControls(0);
-getLineData().catch(() => {});
-getVehicleTypeData().catch(() => {});
-fetchCurrentData().finally(() => {
-  startPreloadCycle({ referenceDate: new Date() });
-});
-autoUpdate?.start();
-updateLoadButtonState();
+if (SERVICE_DISABLED) {
+  setStatus("Serviço temporariamente desativado devido a processos de atualização dos dados.");
+  autoUpdate?.setEnabled(false);
+  updateLoadButtonState();
+  ui.loadButton.disabled = true;
+  ui.loadHistoricalBtn.disabled = true;
+  ui.autoUpdateBtn.disabled = true;
+} else {
+  getLineData().catch(() => {});
+  getVehicleTypeData().catch(() => {});
+  fetchCurrentData().finally(() => {
+    startPreloadCycle({ referenceDate: new Date() });
+  });
+  autoUpdate?.start();
+  updateLoadButtonState();
+}

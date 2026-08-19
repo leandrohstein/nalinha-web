@@ -1,4 +1,5 @@
 import { lineGeoJsonRepository } from "./lineGeoJsonRepository.js";
+import { assertServiceEnabled } from "./serviceOutage.js";
 
 const LINE_GEOJSON_BASE_URL =
   "https://raw.githubusercontent.com/leandrohstein/transporteservico-urbs-data/refs/heads/data/geoJson";
@@ -13,6 +14,7 @@ function buildLineGeoJsonUrl(cod) {
 }
 
 async function fetchLineGeoJsonFromNetwork(cod) {
+  assertServiceEnabled();
   const url = buildLineGeoJsonUrl(cod);
   const response = await fetch(url, { method: "GET" });
 

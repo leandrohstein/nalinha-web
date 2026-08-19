@@ -33,6 +33,7 @@ import {
 } from "./ui/movimentacaoUi.js";
 import { escapeHtml } from "./ui/nalinhaUi.js";
 import { APP_VERSION } from "./version.js";
+import { SERVICE_DISABLED } from "./services/serviceOutage.js";
 
 const DEFAULT_CENTER = [-25.4284, -49.2733];
 const DEFAULT_ZOOM = 12;
@@ -1727,6 +1728,11 @@ function applyFilter() {
 }
 
 async function loadDate(dateKey, options = {}) {
+  if (SERVICE_DISABLED) {
+    setStatus("Serviço temporariamente desativado devido a processos de atualização dos dados.");
+    return;
+  }
+
   const { forceRebuild = false } = options;
 
   pause();
@@ -1960,6 +1966,13 @@ async function bootstrap() {
   ui.dateInput.max = todayKey;
   ui.dateInput.value = toDateInputValue(new Date());
   updateDataControlsAvailability();
+
+  if (SERVICE_DISABLED) {
+    setStatus("Serviço temporariamente desativado devido a processos de atualização dos dados.");
+    ui.loadBtn.disabled = true;
+    ui.rebuildBtn.disabled = true;
+    return;
+  }
 
   setStatus("Carregando dados de linhas e tipos de veículo...");
   await Promise.allSettled([getLineData(), getVehicleTypeData(), loadIconSprite()]);

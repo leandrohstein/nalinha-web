@@ -1,4 +1,5 @@
 import { cacheRepository } from "./cacheRepository.js";
+import { assertServiceEnabled } from "./serviceOutage.js";
 
 const BASE_URL =
   "https://raw.githubusercontent.com/leandrohstein/transporteservico-urbs-data/refs/heads/data/veiculos";
@@ -36,6 +37,7 @@ function subtractMinutes(date, minutes) {
 }
 
 async function fetchFromNetwork(url) {
+  assertServiceEnabled();
   const response = await fetch(url, { method: "GET" });
 
   if (!response.ok) {
