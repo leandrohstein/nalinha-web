@@ -28,9 +28,9 @@ export function buildDataUrl(now = new Date()) {
   return `${buildVeiculosBaseUrl(year)}/${datePart}/${filePart}`;
 }
 
-export function buildDayUrl(dateKey) {
+export function buildHourUrl(dateKey, hour) {
   const year = dateKey.slice(0, 4);
-  return `${buildVeiculosBaseUrl(year)}/${dateKey}/all.json`;
+  return `${buildVeiculosBaseUrl(year)}/${dateKey}/${pad2(hour)}.json`;
 }
 
 export function buildDateTimeKey(now = new Date()) {
