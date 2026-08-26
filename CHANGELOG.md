@@ -2,6 +2,13 @@
 
 Histórico de versões gerado retroativamente a partir do histórico de commits (nenhuma release existia antes desta configuração) e, a partir daqui, mantido automaticamente pelo [release-please](https://github.com/googleapis/release-please).
 
+## [1.4.1](https://github.com/leandrohstein/nalinha-web/compare/v1.4.0...v1.4.1) (2026-08-26)
+
+
+### Correções
+
+* particiona arquivos consolidados de veiculos por hora em vez de por dia ([#13](https://github.com/leandrohstein/nalinha-web/issues/13)) ([2b4e47e](https://github.com/leandrohstein/nalinha-web/commit/2b4e47e1379dc4dcfb9c1d2b91c8160efbe1ef5b))
+
 ## [1.4.0](https://github.com/leandrohstein/nalinha-web/compare/v1.3.0...v1.4.0) (2026-08-26)
 
 
