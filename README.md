@@ -66,7 +66,7 @@ Após o deploy, acesse:
 
 ## Notas
 
-- A aplicação usa dados públicos do GitHub (transporteservico-urbs-data)
+- A aplicação usa dados públicos do GitHub (repositórios `nalinha-app/transporteservico-urbs-data-YYYY`, segregados por ano)
 - Todos os dados são armazenados localmente no navegador (IndexedDB)
 - Funciona totalmente offline após carregar os dados uma vez
 - Compatível com navegadores modernos (Chrome, Firefox, Safari, Edge)

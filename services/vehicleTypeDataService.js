@@ -2,7 +2,7 @@ import { vehicleTypeDataRepository } from "./vehicleTypeDataRepository.js";
 import { assertServiceEnabled } from "./serviceOutage.js";
 
 const VEHICLE_TYPE_DATA_URL =
-  "https://raw.githubusercontent.com/leandrohstein/transporteservico-urbs-data/refs/heads/data/tipoVeiculos.json";
+  "https://raw.githubusercontent.com/nalinha-app/transporteservico-urbs-data-2026/refs/heads/data/tipoVeiculos.json";
 const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 function normalizeVehicleTypeData(data) {
