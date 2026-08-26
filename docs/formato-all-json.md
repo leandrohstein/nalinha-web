@@ -1,7 +1,9 @@
 # Formato dos arquivos consolidados por hora
 
 Contrato para os repositórios `nalinha-app/transporteservico-urbs-data-YYYY`
-(um por ano, branch `data`) gerarem um arquivo consolidado por hora,
+(um por ano, branch `consolidated` — separada da branch `data`, que
+continua só com os arquivos por minuto originais) gerarem um arquivo
+consolidado por hora,
 substituindo — do ponto de vista do consumidor (`nalinha-web`) — a
 necessidade de buscar até 1440 arquivos por minuto para reconstruir um dia
 inteiro. Cada dia usa o repositório do seu próprio ano (ex: dados de

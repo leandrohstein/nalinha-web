@@ -10,9 +10,11 @@ function pad2(value) {
 
 // Os dumps de veiculos sao segregados por ano em repositorios separados
 // (transporteservico-urbs-data-2023, -2024, ...); cada URL usa o repositorio
-// do ano da propria data que esta sendo buscada.
-function buildVeiculosBaseUrl(year) {
-  return `https://raw.githubusercontent.com/${DATA_ORG}/transporteservico-urbs-data-${year}/refs/heads/data/veiculos`;
+// do ano da propria data que esta sendo buscada. Os arquivos por minuto
+// originais ficam na branch "data"; os consolidados por hora (HH.json,
+// ver docs/formato-all-json.md) ficam numa branch separada, "consolidated".
+function buildVeiculosBaseUrl(year, branch) {
+  return `https://raw.githubusercontent.com/${DATA_ORG}/transporteservico-urbs-data-${year}/refs/heads/${branch}/veiculos`;
 }
 
 export function buildDataUrl(now = new Date()) {
@@ -25,12 +27,12 @@ export function buildDataUrl(now = new Date()) {
   const datePart = `${year}-${month}-${day}`;
   const filePart = `${hour}%3A${minute}%3A00.json`;
 
-  return `${buildVeiculosBaseUrl(year)}/${datePart}/${filePart}`;
+  return `${buildVeiculosBaseUrl(year, "data")}/${datePart}/${filePart}`;
 }
 
 export function buildHourUrl(dateKey, hour) {
   const year = dateKey.slice(0, 4);
-  return `${buildVeiculosBaseUrl(year)}/${dateKey}/${pad2(hour)}.json`;
+  return `${buildVeiculosBaseUrl(year, "consolidated")}/${dateKey}/${pad2(hour)}.json`;
 }
 
 export function buildDateTimeKey(now = new Date()) {
