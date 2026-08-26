@@ -2,7 +2,7 @@ import { lineGeoJsonRepository } from "./lineGeoJsonRepository.js";
 import { assertServiceEnabled } from "./serviceOutage.js";
 
 const LINE_GEOJSON_BASE_URL =
-  "https://raw.githubusercontent.com/leandrohstein/transporteservico-urbs-data/refs/heads/data/geoJson";
+  "https://raw.githubusercontent.com/nalinha-app/transporteservico-urbs-data-2026/refs/heads/data/geoJson";
 const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 function isCacheFresh(cachedAt, now = Date.now()) {

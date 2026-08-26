@@ -1,12 +1,18 @@
 import { cacheRepository } from "./cacheRepository.js";
 import { assertServiceEnabled } from "./serviceOutage.js";
 
-const BASE_URL =
-  "https://raw.githubusercontent.com/leandrohstein/transporteservico-urbs-data/refs/heads/data/veiculos";
+const DATA_ORG = "nalinha-app";
 const MAX_HISTORY_MINUTES = 5;
 
 function pad2(value) {
   return String(value).padStart(2, "0");
+}
+
+// Os dumps de veiculos sao segregados por ano em repositorios separados
+// (transporteservico-urbs-data-2023, -2024, ...); cada URL usa o repositorio
+// do ano da propria data que esta sendo buscada.
+function buildVeiculosBaseUrl(year) {
+  return `https://raw.githubusercontent.com/${DATA_ORG}/transporteservico-urbs-data-${year}/refs/heads/data/veiculos`;
 }
 
 export function buildDataUrl(now = new Date()) {
@@ -19,7 +25,12 @@ export function buildDataUrl(now = new Date()) {
   const datePart = `${year}-${month}-${day}`;
   const filePart = `${hour}%3A${minute}%3A00.json`;
 
-  return `${BASE_URL}/${datePart}/${filePart}`;
+  return `${buildVeiculosBaseUrl(year)}/${datePart}/${filePart}`;
+}
+
+export function buildDayUrl(dateKey) {
+  const year = dateKey.slice(0, 4);
+  return `${buildVeiculosBaseUrl(year)}/${dateKey}/all.json`;
 }
 
 export function buildDateTimeKey(now = new Date()) {

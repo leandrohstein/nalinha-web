@@ -2,7 +2,7 @@ import { lineDataRepository } from "./lineDataRepository.js";
 import { assertServiceEnabled } from "./serviceOutage.js";
 
 const LINE_DATA_URL =
-  "https://raw.githubusercontent.com/leandrohstein/transporteservico-urbs-data/refs/heads/data/getLinhas.json";
+  "https://raw.githubusercontent.com/nalinha-app/transporteservico-urbs-data-2026/refs/heads/data/getLinhas.json";
 const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 function normalizeLineData(data) {

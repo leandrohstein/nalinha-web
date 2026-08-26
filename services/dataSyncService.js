@@ -1,5 +1,5 @@
 import { cacheRepository } from "./cacheRepository.js";
-import { buildDataUrl, buildDateTimeKey } from "./vehicleDataService.js";
+import { buildDataUrl, buildDayUrl, buildDateTimeKey } from "./vehicleDataService.js";
 import { assertServiceEnabled } from "./serviceOutage.js";
 
 function pad2(value) {
@@ -17,11 +17,49 @@ function startOfDay(dateKey) {
   return new Date(year, month - 1, day, 0, 0, 0, 0);
 }
 
-async function fetchAndCacheMinute(targetDate) {
+function buildTimeKey(date) {
+  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}:00`;
+}
+
+/**
+ * Busca o arquivo consolidado do dia (all.json), que reune num objeto unico
+ * o conteudo bruto de todos os arquivos por minuto ja publicados para
+ * dateKey (chave "HH:MM:SS" -> mesmo payload do arquivo por minuto
+ * correspondente; minutos sem dado simplesmente nao aparecem). So existe
+ * para dias ja encerrados - retorna null (sem lancar) em qualquer falha
+ * (404 = dia ainda nao consolidado, ou qualquer outro erro), sinalizando ao
+ * chamador para cair de volta no fluxo minuto a minuto.
+ */
+async function fetchDayFile(dateKey) {
+  try {
+    assertServiceEnabled();
+    const response = await fetch(buildDayUrl(dateKey), { method: "GET" });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+async function fetchAndCacheMinute(targetDate, dayData = null, dayUrl = null) {
   const dateTimeKey = buildDateTimeKey(targetDate);
   const cached = await cacheRepository.get(dateTimeKey);
   if (cached !== null) {
     return "cache";
+  }
+
+  if (dayData) {
+    const data = dayData[buildTimeKey(targetDate)];
+    if (data === undefined) {
+      return "missing";
+    }
+
+    await cacheRepository.set(dateTimeKey, data, dayUrl);
+    return "network";
   }
 
   const url = buildDataUrl(targetDate);
@@ -98,6 +136,15 @@ export async function syncDayToCache(dateKey, options = {}) {
     dayReachesEndOfDay,
   };
 
+  // Dias ja encerrados podem ter um all.json consolidado (ver
+  // docs/formato-all-json.md), que evita buscar ate 1440 arquivos
+  // individuais. O dia de hoje nunca tem esse arquivo (ainda esta em
+  // andamento), entao continua indo minuto a minuto. Se o dia nao tiver
+  // all.json (404) ou a busca falhar por qualquer motivo, dayData fica
+  // null e o loop abaixo cai automaticamente de volta pro fluxo por minuto.
+  const dayData = isTodayKey(dateKey) ? null : await fetchDayFile(dateKey);
+  const dayUrl = dayData ? buildDayUrl(dateKey) : null;
+
   for (let minute = startMinute; minute < dayTotalMinutes; minute += 1) {
     if (isCancelled?.()) {
       summary.cancelled = true;
@@ -105,7 +152,7 @@ export async function syncDayToCache(dateKey, options = {}) {
     }
 
     const targetDate = new Date(dayStart.getTime() + minute * 60000);
-    const status = await fetchAndCacheMinute(targetDate);
+    const status = await fetchAndCacheMinute(targetDate, dayData, dayUrl);
 
     if (isCancelled?.()) {
       summary.cancelled = true;
