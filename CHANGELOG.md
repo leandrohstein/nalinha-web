@@ -2,6 +2,13 @@
 
 Histórico de versões gerado retroativamente a partir do histórico de commits (nenhuma release existia antes desta configuração) e, a partir daqui, mantido automaticamente pelo [release-please](https://github.com/googleapis/release-please).
 
+## [1.4.0](https://github.com/leandrohstein/nalinha-web/compare/v1.3.0...v1.4.0) (2026-08-26)
+
+
+### Funcionalidades
+
+* sincroniza dias encerrados via arquivo consolidado e segrega dados de veiculos por ano ([#11](https://github.com/leandrohstein/nalinha-web/issues/11)) ([608090b](https://github.com/leandrohstein/nalinha-web/commit/608090b8b1a3e8aa9e6c9b1b33edb87584319c7a))
+
 ## [1.3.0](https://github.com/leandrohstein/nalinha-web/compare/v1.2.0...v1.3.0) (2026-08-19)
 
 
